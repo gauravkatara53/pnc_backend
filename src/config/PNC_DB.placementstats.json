@@ -1,0 +1,19 @@
+[
+  {
+    "slug": "nit-jamshedpur",
+    "year": 2024,
+    "totalOffers": 45,
+    "highestPackage": 123,
+    "averagePackage": 12.63,
+    "recruiters": 120,
+    "__v": 0
+  },
+  {
+    "slug": "nit-jamshedpur",
+    "year": 2023,
+    "totalOffers": 420,
+    "highestPackage": 83,
+    "averagePackage": 11.45,
+    "recruiters": 110
+  }
+]

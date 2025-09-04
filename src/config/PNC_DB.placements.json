@@ -1,0 +1,20 @@
+[
+  {
+    "slug": "nit-jamshedpur",
+    "year": 2024,
+    "branch": "Civil Engineering",
+    "placementPercentage": 94.9,
+    "medianPackageLPA": 7,
+    "highestPackageLPA": 18,
+    "averagePackageLPA": 8.22
+  },
+  {
+    "slug": "nit-jamshedpur",
+    "year": 2024,
+    "branch": "Computer Science and Engineering",
+    "placementPercentage": 93.04,
+    "medianPackageLPA": 14.1,
+    "highestPackageLPA": 123,
+    "averagePackageLPA": 20.24
+  }
+]

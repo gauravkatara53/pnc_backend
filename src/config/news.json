@@ -1,0 +1,45 @@
+{
+  "title": "IIT Roorkee Hits New Milestone with ₹18.2 LPA Average Package",
+  "slug": "iit-roorkee-placement-2024",
+  "summary": "IIT Roorkee witnessed its best placement drive ever, with participation from global and domestic recruiters.",
+  "coverImage": "https://example.com/images/iit-roorkee-placement.jpg",
+  "tags": ["Placement", "Education"],
+  "category": "Placement",
+  "trending": true,
+  "author": {
+    "name": "Career Desk",
+    "avatar": "https://example.com/avatars/career-desk.png",
+    "role": "Correspondent"
+  },
+  "publishDate": "2024-12-19T00:00:00.000Z",
+  "readTime": 5,
+  "views": 12100,
+  "comments": 41,
+  "shares": 112,
+  "helpfulVotes": 300,
+  "sections": [
+    {
+      "heading": "Placement Overview",
+      "paragraphs": [
+        "The highest package offered reached ₹1.5 crore at an international fintech firm.",
+        "Median salary stood at ₹17.0 LPA, up from previous year’s ₹15.4 LPA."
+      ],
+      "table": {
+        "headers": ["Department", "Average Package"],
+        "rows": [
+          ["CSE", "₹22.4 LPA"],
+          ["ECE", "₹20.1 LPA"],
+          ["Civil", "₹16.7 LPA"],
+          ["Biotech", "₹15.6 LPA"]
+        ]
+      }
+    },
+    {
+      "heading": "Top Recruiters",
+      "paragraphs": [
+        "Amazon, Microsoft, JP Morgan, and Reliance were among the top hirers.",
+        "Consulting also emerged as a strong sector with offers from Deloitte, PwC, and EY."
+      ]
+    }
+  ]
+}

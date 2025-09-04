@@ -1,6 +1,6 @@
 // controllers/newsArticleController.js
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiResponse } from "../utils/apiResponse.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 import { createNewsArticleService } from "../services/newsArticleService.js";
 import NewsArticle from "../models/newsModel.js";
 export const createNewsArticleController = asyncHandler(async (req, res) => {

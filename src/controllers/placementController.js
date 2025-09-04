@@ -8,7 +8,7 @@ import {
   getPlacementStatsByCollegeService,
   createPlacementStatsService,
 } from "../services/placementService.js";
-import { ApiResponse } from "../utils/apiResponse.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 import { getCache, setCache } from "../utils/nodeCache.js";
 // ✅ Create placement (slug from params)
 export const createPlacementController = asyncHandler(async (req, res) => {

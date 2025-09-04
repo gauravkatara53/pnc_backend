@@ -1,0 +1,290 @@
+{
+  "name": "IIT Guwahati",
+  "slug": "iit-guwahati",
+  "bio": "IT Guwahati Renowned for its scenic campus and rising excellence in engineering and biotech research.",
+  "fullNames": "Indian Institute of Technology, Guwahati",
+  "image_url": "https://ik.imagekit.io/ak2ol9uti/PNC-MANUL/image.png?updatedAt=1756747937842",
+  "fees": 900000,
+  "avgSalary": 1300000,
+  "nirf": "9",
+  "stream": "Engineering",
+  "highestPackage": 20500000,
+  "placementRate": 71.0,
+  "instituteType": "Govt",
+  "tag": "IIT",
+  "establishedYear": 1994,
+  "location": "Guwahati, Assam",
+  "address": "Indian Institute of Technology, Near Doul Gobinda Road, Amingaon, North Guwahati, Guwahati, Assam - 781039",
+  "state": "Assam",
+  "country": "India",
+  "pincode": "781039",
+  "addressConnectivity": [
+    {
+      "fullAddress": "Indian Institute of Technology, Near Doul Gobinda Road, Amingaon, North Guwahati, Guwahati, Assam - 781039",
+      "connectivity": [
+        {
+          "name": "Airport",
+          "description": "Lokpriya Gopinath Bordoloi International Airport, Guwahati",
+          "distanceKm": 23
+        },
+        {
+          "name": "Railway Station",
+          "description": "Guwahati Railway Station",
+          "distanceKm": 19.5
+        }
+      ]
+    }
+  ],
+  "campusFacilities": [
+    { "name": "Boys Hostels", "available": true },
+    { "name": "girls Hostels", "available": true },
+    { "name": "sports complex", "available": true },
+    { "name": "medical", "available": true },
+    { "name": "canteen", "available": true },
+    { "name": "wifi 24x7", "available": true },
+    { "name": "Library", "available": true },
+    { "name": "bank", "available": true }
+  ],
+  "rankings": [
+    {
+      "rankingBody": "QS World",
+      "category": "QS World University Rankings",
+      "rankingType": "international",
+      "ranksByYear": [
+        { "year": 2025, "rank": "344" },
+        { "year": 2024, "rank": "364" }
+      ]
+    },
+    {
+      "rankingBody": "QS Asia",
+      "category": "QS Asia University Rankings",
+      "rankingType": "international",
+      "ranksByYear": [
+        { "year": 2025, "rank": "104" },
+        { "year": 2024, "rank": "111" }
+      ]
+    },
+    {
+      "rankingBody": "QS World",
+      "category": "QS World University Rankings - Engineering & Technology",
+      "rankingType": "international",
+      "ranksByYear": [
+        { "year": 2024, "rank": "210" },
+        { "year": 2023, "rank": "222" }
+      ]
+    },
+    {
+      "rankingBody": "THE World",
+      "category": "THE World University Rankings",
+      "rankingType": "international",
+      "ranksByYear": [
+        { "year": 2025, "rank": "801-1000" },
+        { "year": 2024, "rank": "601-800" }
+      ]
+    },
+    {
+      "rankingBody": "THE Asia",
+      "category": "THE Asia University Rankings",
+      "rankingType": "international",
+      "ranksByYear": [
+        { "year": 2024, "rank": "158" },
+        { "year": 2023, "rank": "301-350" }
+      ]
+    },
+    {
+      "rankingBody": "THE World Subject",
+      "category": "THE World Subject Rankings - Engineering",
+      "rankingType": "international",
+      "ranksByYear": [
+        { "year": 2024, "rank": "501-600" },
+        { "year": 2023, "rank": "601-800" }
+      ]
+    },
+    {
+      "rankingBody": "NIRF",
+      "category": "NIRF Overall Rankings",
+      "rankingType": "national",
+      "ranksByYear": [
+        { "year": 2024, "rank": "9" },
+        { "year": 2023, "rank": "9" }
+      ]
+    },
+    {
+      "rankingBody": "NIRF",
+      "category": "NIRF Engineering Rankings",
+      "rankingType": "national",
+      "ranksByYear": [
+        { "year": 2024, "rank": "7" },
+        { "year": 2023, "rank": "7" }
+      ]
+    },
+    {
+      "rankingBody": "NIRF",
+      "category": "NIRF Research Rankings",
+      "rankingType": "national",
+      "ranksByYear": [
+        { "year": 2024, "rank": "10" },
+        { "year": 2023, "rank": "9" }
+      ]
+    },
+    {
+      "rankingBody": "NIRF",
+      "category": "NIRF Innovation Rankings",
+      "rankingType": "national",
+      "ranksByYear": [{ "year": 2023, "rank": "11-50" }]
+    },
+    {
+      "rankingBody": "Outlook India",
+      "category": "Outlook India’s Top Govt. Technical Universities",
+      "rankingType": "national",
+      "ranksByYear": [
+        { "year": 2023, "rank": "8" },
+        { "year": 2022, "rank": "8" }
+      ]
+    },
+    {
+      "rankingBody": "Outlook India",
+      "category": "Outlook India's Top Govt. Engineering Colleges",
+      "rankingType": "national",
+      "ranksByYear": [
+        { "year": 2024, "rank": "7" },
+        { "year": 2023, "rank": "7" }
+      ]
+    },
+    {
+      "rankingBody": "India Today",
+      "category": "India Today Top Engineering Colleges",
+      "rankingType": "national",
+      "ranksByYear": [
+        { "year": 2024, "rank": "6" },
+        { "year": 2023, "rank": "6" }
+      ]
+    },
+    {
+      "rankingBody": "India Today",
+      "category": "India Today Top Govt. Engineering Colleges",
+      "rankingType": "national",
+      "ranksByYear": [{ "year": 2022, "rank": "6" }]
+    },
+    {
+      "rankingBody": "The Week",
+      "category": "The Week Best Technical Universities India",
+      "rankingType": "national",
+      "ranksByYear": [{ "year": 2023, "rank": "7" }]
+    },
+    {
+      "rankingBody": "The Week",
+      "category": "The Week Top Engineering Colleges India",
+      "rankingType": "national",
+      "ranksByYear": [
+        { "year": 2024, "rank": "6" },
+        { "year": 2023, "rank": "6" }
+      ]
+    }
+  ],
+  "admissionCriteria": {
+    "criteriaList": [
+      {
+        "point": "Candidates must qualify the JEE (Main) exam and then appear for the JEE (Advanced) exam."
+      },
+      {
+        "point": "Candidates must secure at least 75% marks (65% for SC/ST/PwD) in Class XII OR be within the top 20 percentile in their respective board examination."
+      },
+      {
+        "point": "Admissions are based on the rank obtained in JEE (Advanced) through JoSAA Counselling."
+      }
+    ],
+    "forMoreDetails": "For further details, refer to the JEE Advanced Performance Criteria in Class XII.",
+    "detailsUrl": "https://jeeadv.ac.in/admission_criteria.html"
+  },
+  "coursesOffered": {
+    "programs": [
+      {
+        "programType": "Undergraduate",
+        "courses": [
+          "Biosciences and Bioengineering",
+          "Chemical Engineering",
+          "Chemical Science and Technology",
+          "Civil Engineering",
+          "Computer Science and Engineering",
+          "Data Science and Artificial Intelligence",
+          "Electronics and Communication Engineering",
+          "Electronics and Electrical Engineering",
+          "Energy Engineering",
+          "Engineering Physics",
+          "Mathematics and Computing",
+          "Mechanical Engineering"
+        ]
+      }
+    ]
+  },
+  "seatsAvailable": 962,
+  "instituteFeeStructure": [
+    {
+      "title": "Caution Money (One-Time, Refundable)",
+      "amount": 5000
+    },
+    {
+      "title": "Tuition Fee (per Semester)",
+      "amount": 62500
+    },
+    {
+      "title": "Other Fees (per Semester)",
+      "amount": 17000
+    },
+    {
+      "title": "Total",
+      "amount": 84500
+    }
+  ],
+  "hostelFeeStructure": [
+    {
+      "title": "Mess Caution Money (One-Time, Refundable)",
+      "amount": 10000
+    },
+    {
+      "title": "One-Time Fees",
+      "amount": 500
+    },
+    {
+      "title": "Hostel Seat Rent (per Semester)",
+      "amount": 6000
+    },
+    {
+      "title": "Other Fees (per Semester)",
+      "amount": 2500
+    },
+    {
+      "title": "Mess Advance (per Semester)",
+      "amount": 25000
+    },
+    {
+      "title": "Total",
+      "amount": 44000
+    }
+  ],
+  "waiver": [
+    {
+      "title": "100% Tuition Fee waiver for SC/ST/PwD students",
+      "description": "Full remission of tuition fee is provided to SC, ST, and PwD students."
+    },
+    {
+      "title": "100% Tuition Fee remission for Most Economically Backward students",
+      "description": "Students with family income less than ₹1 lakh per annum are eligible for full tuition fee remission."
+    },
+    {
+      "title": "2/3rd Tuition Fee remission for Other Economically Backward students",
+      "description": "Students with family income between ₹1 lakh to ₹5 lakh per annum are eligible for 2/3rd tuition fee remission."
+    }
+  ],
+  "placementAnalytics": {},
+  "examType": "JEE-Advanced",
+  "isPlacementRateAvailable": true,
+  "isMedianPackageAvailable": true,
+  "isHighestPackageAvailable": true,
+  "isAveragePackageAvailable": true,
+  "contactEmail": "",
+  "contactPhone": "",
+  "website": "",
+  "AlsoKnownAs": "IITG"
+}

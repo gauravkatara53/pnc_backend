@@ -1,7 +1,7 @@
 // controllers/cutoffController.js
 import { asyncHandler } from "../utils/asyncHandler.js";
 import Cutoff from "../models/cutoffModel.js";
-import { ApiResponse } from "../utils/apiResponse.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 import { setCache, getCache, deleteCacheByPrefix } from "../utils/nodeCache.js";
 
 // Utility to build filter from query params

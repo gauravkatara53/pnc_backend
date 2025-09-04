@@ -1,5 +1,6 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiResponse } from "../utils/apiResponse.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+
 import {
   createCollegeService,
   getAllCollegesService,

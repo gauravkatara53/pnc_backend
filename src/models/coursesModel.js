@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const courseSchema = new mongoose.Schema({
   courseName: { type: String, required: true }, // e.g., "Computer Science and Engineering"
+  category: { type: String, required: true }, // e.g., "Engineering"
   durationYears: { type: Number, required: true, min: 1 }, // e.g., 4
   degree: { type: String, required: true }, // e.g., "B.Tech"
   description: { type: String, required: true }, // Course description

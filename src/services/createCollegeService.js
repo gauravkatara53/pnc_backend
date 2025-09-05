@@ -105,7 +105,7 @@ export const getAllCollegesService = async (filters, page, limit) => {
 
   const query = {};
 
-  // Add searchTerm filter to search by name, fullNames, slug, AlsoKnownAs
+  // Search term filter
   if (filters.searchTerm) {
     const searchRegex = new RegExp(filters.searchTerm, "i");
     query.$or = [
@@ -116,23 +116,21 @@ export const getAllCollegesService = async (filters, page, limit) => {
     ];
   }
 
-  // Support comma separated list filtering for multi-value filters
+  // Multi-value filters
   if (filters.state) {
-    const states = filters.state.split(",");
-    query.state = { $in: states };
+    query.state = { $in: filters.state.split(",") };
   }
   if (filters.instituteType) {
-    const types = filters.instituteType.split(",");
-    query.instituteType = { $in: types };
+    query.instituteType = { $in: filters.instituteType.split(",") };
   }
   if (filters.tag) {
-    const tags = filters.tag.split(",");
-    query.tag = { $in: tags };
+    query.tag = { $in: filters.tag.split(",") };
   }
-  if (filters.Stream) {
-    const streams = filters.Stream.split(",");
-    query.Stream = { $in: streams };
+  if (filters.stream) {
+    query.stream = { $in: filters.stream.split(",") }; // ✅ fixed lowercase field
   }
+
+  // Range filters
   if (filters.minFees) query.fees = { $gte: Number(filters.minFees) };
   if (filters.maxFees)
     query.fees = { ...(query.fees || {}), $lte: Number(filters.maxFees) };
@@ -148,11 +146,33 @@ export const getAllCollegesService = async (filters, page, limit) => {
 
   const skip = (page - 1) * limit;
 
+  // Fields to return
+  const projection = {
+    name: 1,
+    slug: 1,
+    image_url: 1,
+    fees: 1,
+    avgSalary: 1,
+    nirf: 1,
+    placementRate: 1,
+    instituteType: 1,
+    tag: 1,
+    establishedYear: 1,
+    location: 1,
+    address: 1,
+    state: 1,
+    country: 1,
+    pincode: 1,
+    examType: 1,
+    AlsoKnownAs: 1,
+    stream: 1,
+  };
+
   // Fetch total count for pagination
   const totalCount = await CollegeProfile.countDocuments(query);
 
-  // Fetch paginated results
-  const colleges = await CollegeProfile.find(query)
+  // Fetch paginated results with only needed fields
+  const colleges = await CollegeProfile.find(query, projection)
     .sort(sort)
     .skip(skip)
     .limit(limit)

@@ -8,6 +8,7 @@ import { setCache, getCache, deleteCacheByPrefix } from "../utils/nodeCache.js";
 const buildFilter = (query) => {
   const filter = {};
   if (query.slug) filter.slug = query.slug;
+  if (query.examType) filter.examType = query.examType;
   if (query.year) filter.year = Number(query.year);
   if (query.branch) filter.branch = query.branch;
   if (query.quota) filter.quota = query.quota;

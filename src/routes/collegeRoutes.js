@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   createCollegeController,
   getAllCollegesController,
+  getAllCollegeSlugsController,
   getCollegeBySlugController,
   uploadCollegeProfilePic,
   uploadPlacementAnalytics,
@@ -29,4 +30,6 @@ router.post(
   upload.single("image"),
   uploadPlacementAnalytics
 );
+
+router.get("/all/slugs", getAllCollegeSlugsController);
 export default router;

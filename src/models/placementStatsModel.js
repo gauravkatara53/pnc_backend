@@ -14,7 +14,8 @@ const placementStatsSchema = new mongoose.Schema({
   averagePackage: { type: Number, min: 0 }, // e.g., 6.00
 
   recruiters: { type: Number, min: 0 }, // e.g., 18.00
-  graph_url: { type: String, required: true }, // e.g., "http://example.com/graph.png"
+  graph_url: { type: String, required: true },
+  company_url: { type: String, required: true },
 });
 
 const PlacementStats = mongoose.model("PlacementStats", placementStatsSchema);

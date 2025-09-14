@@ -115,3 +115,12 @@ export const getNewsArticleBySlugController = asyncHandler(async (req, res) => {
   setCache(cacheKey, newsArticle); // Cache plain object
   res.status(200).json(newsArticle);
 });
+export const getAllNewsSlugsController = asyncHandler(async (req, res) => {
+  const slugs = await NewsArticle.find({}, "slug").lean();
+  const slugList = slugs.map((article) => article.slug);
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, slugList, "All news slugs fetched successfully")
+    );
+});

@@ -205,3 +205,11 @@ export const uploadPlacementAnalytics = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const getAllCollegeSlugsController = asyncHandler(async (req, res) => {
+  const colleges = await CollegeProfile.find({}, "slug");
+  const slugs = colleges.map((college) => college.slug);
+  res
+    .status(200)
+    .json(new ApiResponse(200, slugs, "College slugs fetched successfully"));
+});

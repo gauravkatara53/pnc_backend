@@ -95,6 +95,7 @@ const collegeProfileSchema = new mongoose.Schema(
         "State",
         "AIIMS",
         "Other",
+        "PPP",
       ],
       default: "Private",
       type: String,

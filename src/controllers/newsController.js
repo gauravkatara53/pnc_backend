@@ -13,7 +13,6 @@ export const createNewsArticleController = asyncHandler(async (req, res) => {
     tags,
     category,
     author,
-    publishDate,
     readTime,
     sections,
   } = req.body;
@@ -27,7 +26,6 @@ export const createNewsArticleController = asyncHandler(async (req, res) => {
     tags,
     category,
     author,
-    publishDate,
     readTime,
     sections,
   });
@@ -42,7 +40,6 @@ export const createNewsArticleController = asyncHandler(async (req, res) => {
 import { setCache, getCache } from "../utils/nodeCache.js";
 
 export const getNewsArticlesController = asyncHandler(async (req, res) => {
-  // Destructure and keep raw values
   const {
     category,
     tags,
@@ -50,16 +47,15 @@ export const getNewsArticlesController = asyncHandler(async (req, res) => {
     dateFrom,
     dateTo,
     keyword,
-    sortBy,
     page = "1",
     limit = "10",
   } = req.query;
 
-  // Convert page/limit to numbers safely
+  // Convert page/limit safely
   const pageNum = Math.max(1, Number(page) || 1);
-  const limitNum = Math.max(1, Math.min(100, Number(limit) || 10)); // cap at 100
+  const limitNum = Math.max(1, Math.min(100, Number(limit) || 10));
 
-  // Create deterministic cache key (sort query keys so same queries produce same key)
+  // Create deterministic cache key
   const orderedQuery = {};
   Object.keys(req.query)
     .sort()
@@ -68,7 +64,7 @@ export const getNewsArticlesController = asyncHandler(async (req, res) => {
     });
   const cacheKey = `news:list:${JSON.stringify(orderedQuery)}`;
 
-  // Try cache first
+  // Check cache
   const cached = getCache(cacheKey);
   if (cached) {
     return res
@@ -81,7 +77,6 @@ export const getNewsArticlesController = asyncHandler(async (req, res) => {
   if (category) filter.category = category;
 
   if (tags) {
-    // allow tags as CSV string or array
     const tagsArray = Array.isArray(tags)
       ? tags
       : String(tags)
@@ -109,35 +104,53 @@ export const getNewsArticlesController = asyncHandler(async (req, res) => {
       filter.$or = [
         { title: { $regex: kw, $options: "i" } },
         { summary: { $regex: kw, $options: "i" } },
-        { "content.text": { $regex: kw, $options: "i" } }, // optional — if you store full content
+        { "content.text": { $regex: kw, $options: "i" } }, // optional if you store full content
       ];
     }
   }
 
-  // Sort: allow custom sortBy but always ensure newest publishDate comes first as a tie-breaker.
-  // If you want to completely ignore sortBy and use publishDate only, replace with { publishDate: -1 }
-  const sortCondition = sortBy
-    ? { [sortBy]: -1, publishDate: -1 }
-    : { publishDate: -1 };
-
+  // 🔥 Always latest → oldest
+  const sortCondition = { publishDate: -1 };
   const skip = (pageNum - 1) * limitNum;
 
-  const newsArticles = await NewsArticle.find(filter)
-    .sort(sortCondition)
-    .skip(skip)
-    .limit(limitNum)
-    .select(
-      "title slug summary category trending coverImage publishDate readTime"
-    )
-    .lean();
+  // Query DB in parallel
+  const [newsArticles, totalCount] = await Promise.all([
+    NewsArticle.find(filter)
+      .sort(sortCondition)
+      .skip(skip)
+      .limit(limitNum)
+      .select(
+        "title slug summary category trending coverImage publishDate readTime"
+      )
+      .lean(),
+    NewsArticle.countDocuments(filter),
+  ]);
 
-  // Cache results (store plain JS objects)
-  setCache(cacheKey, newsArticles);
+  const totalPages = Math.ceil(totalCount / limitNum);
+
+  const responsePayload = {
+    articles: newsArticles,
+    pagination: {
+      totalCount,
+      totalPages,
+      currentPage: pageNum,
+      limit: limitNum,
+      hasNextPage: pageNum < totalPages,
+      hasPrevPage: pageNum > 1,
+    },
+  };
+
+  // Cache response
+  setCache(cacheKey, responsePayload);
 
   return res
     .status(200)
     .json(
-      new ApiResponse(200, newsArticles, "News articles fetched successfully")
+      new ApiResponse(
+        200,
+        responsePayload,
+        "News articles fetched successfully"
+      )
     );
 });
 

@@ -180,3 +180,99 @@ export const getAllNewsSlugsController = asyncHandler(async (req, res) => {
       new ApiResponse(200, slugList, "All news slugs fetched successfully")
     );
 });
+
+export const getNewsArticlesTrendingController = asyncHandler(
+  async (req, res) => {
+    try {
+      const cacheKey = "news:trending:latest:2";
+      const bypass = String(req.query.bypassCache || "") === "true";
+      const invalidate = String(req.query.invalidateCache || "") === "true";
+
+      // Helpful server logs for debugging
+      console.log(
+        "[trending] request received, bypassCache=",
+        bypass,
+        "invalidateCache=",
+        invalidate
+      );
+
+      // Optionally clear cache (for testing)
+      if (invalidate) {
+        try {
+          // if you have delCache exported from utils/nodeCache.js
+          const { delCache } = await import("../utils/nodeCache.js");
+          if (delCache) {
+            delCache(cacheKey);
+            console.log("[trending] cache invalidated:", cacheKey);
+          }
+        } catch (e) {
+          console.warn(
+            "[trending] delCache not available or error invalidating cache:",
+            e
+          );
+        }
+      }
+
+      // Check cache unless bypass requested
+      if (!bypass) {
+        const cached = getCache(cacheKey);
+        console.log(
+          "[trending] cached value:",
+          cached === undefined
+            ? "undefined"
+            : Array.isArray(cached)
+            ? `array(${cached.length})`
+            : typeof cached
+        );
+        if (cached && Array.isArray(cached) && cached.length > 0) {
+          return res
+            .status(200)
+            .json(
+              new ApiResponse(
+                200,
+                { articles: cached },
+                "Trending news fetched (cached)"
+              )
+            );
+        }
+      }
+
+      // Log how many docs match trending true
+      const trendingCount = await NewsArticle.countDocuments({
+        trending: true,
+      });
+      console.log(
+        `[trending] countDocuments({ trending: true }) => ${trendingCount}`
+      );
+
+      // Fetch from DB directly
+      const newsArticles = await NewsArticle.find({ trending: true })
+        .sort({ publishDate: -1 })
+        .limit(2)
+        .select(
+          "title slug summary category trending coverImage publishDate readTime"
+        )
+        .lean();
+
+      console.log("[trending] fetched from DB, length=", newsArticles.length);
+
+      // Cache result
+      setCache(cacheKey, newsArticles);
+
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(
+            200,
+            { articles: newsArticles },
+            "Latest 2 trending news fetched successfully"
+          )
+        );
+    } catch (error) {
+      console.error("Error fetching trending news:", error);
+      return res
+        .status(500)
+        .json(new ApiResponse(500, null, "Error fetching trending news"));
+    }
+  }
+);

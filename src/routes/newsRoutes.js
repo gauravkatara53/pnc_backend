@@ -4,6 +4,7 @@ import {
   getAllNewsSlugsController,
   getNewsArticleBySlugController,
   getNewsArticlesController,
+  getNewsArticlesTrendingController,
 } from "../controllers/newsController.js";
 
 const router = Router();
@@ -15,5 +16,6 @@ router.get("/all", getNewsArticlesController);
 router.get("/:slug", getNewsArticleBySlugController);
 
 router.get("/all/slugs", getAllNewsSlugsController);
+router.get("/trending/1", getNewsArticlesTrendingController);
 
 export default router;

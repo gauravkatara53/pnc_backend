@@ -42,6 +42,7 @@ export const createNewsArticleController = asyncHandler(async (req, res) => {
 import { setCache, getCache } from "../utils/nodeCache.js";
 
 export const getNewsArticlesController = asyncHandler(async (req, res) => {
+  // Destructure and keep raw values
   const {
     category,
     tags,
@@ -50,12 +51,22 @@ export const getNewsArticlesController = asyncHandler(async (req, res) => {
     dateTo,
     keyword,
     sortBy,
-    page = 1,
-    limit = 10,
+    page = "1",
+    limit = "10",
   } = req.query;
 
-  // Dynamically generate a unique cache key from query params
-  const cacheKey = `news:list:${JSON.stringify(req.query)}`;
+  // Convert page/limit to numbers safely
+  const pageNum = Math.max(1, Number(page) || 1);
+  const limitNum = Math.max(1, Math.min(100, Number(limit) || 10)); // cap at 100
+
+  // Create deterministic cache key (sort query keys so same queries produce same key)
+  const orderedQuery = {};
+  Object.keys(req.query)
+    .sort()
+    .forEach((k) => {
+      orderedQuery[k] = req.query[k];
+    });
+  const cacheKey = `news:list:${JSON.stringify(orderedQuery)}`;
 
   // Try cache first
   const cached = getCache(cacheKey);
@@ -65,33 +76,65 @@ export const getNewsArticlesController = asyncHandler(async (req, res) => {
       .json(new ApiResponse(200, cached, "News articles fetched (cached)"));
   }
 
-  let filter = {};
+  // Build filter
+  const filter = {};
   if (category) filter.category = category;
-  if (tags) filter.tags = { $in: tags.split(",") };
-  if (authorName) filter["author.name"] = authorName;
-  if (dateFrom || dateTo) filter.publishDate = {};
-  if (dateFrom) filter.publishDate.$gte = new Date(dateFrom);
-  if (dateTo) filter.publishDate.$lte = new Date(dateTo);
-  if (keyword)
-    filter.$or = [
-      { title: { $regex: keyword, $options: "i" } },
-      { summary: { $regex: keyword, $options: "i" } },
-    ];
 
-  const sortCondition = sortBy ? { [sortBy]: -1 } : { publishDate: -1 };
-  const skip = (page - 1) * limit;
+  if (tags) {
+    // allow tags as CSV string or array
+    const tagsArray = Array.isArray(tags)
+      ? tags
+      : String(tags)
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean);
+    if (tagsArray.length) filter.tags = { $in: tagsArray };
+  }
+
+  if (authorName) filter["author.name"] = authorName;
+
+  if (dateFrom || dateTo) filter.publishDate = {};
+  if (dateFrom) {
+    const fromDate = new Date(dateFrom);
+    if (!isNaN(fromDate)) filter.publishDate.$gte = fromDate;
+  }
+  if (dateTo) {
+    const toDate = new Date(dateTo);
+    if (!isNaN(toDate)) filter.publishDate.$lte = toDate;
+  }
+
+  if (keyword) {
+    const kw = String(keyword).trim();
+    if (kw) {
+      filter.$or = [
+        { title: { $regex: kw, $options: "i" } },
+        { summary: { $regex: kw, $options: "i" } },
+        { "content.text": { $regex: kw, $options: "i" } }, // optional — if you store full content
+      ];
+    }
+  }
+
+  // Sort: allow custom sortBy but always ensure newest publishDate comes first as a tie-breaker.
+  // If you want to completely ignore sortBy and use publishDate only, replace with { publishDate: -1 }
+  const sortCondition = sortBy
+    ? { [sortBy]: -1, publishDate: -1 }
+    : { publishDate: -1 };
+
+  const skip = (pageNum - 1) * limitNum;
 
   const newsArticles = await NewsArticle.find(filter)
     .sort(sortCondition)
     .skip(skip)
-    .limit(Number(limit))
+    .limit(limitNum)
     .select(
       "title slug summary category trending coverImage publishDate readTime"
-    ) // Select only needed fields
+    )
     .lean();
 
-  setCache(cacheKey, newsArticles); // Cache plain JS objects safely
-  res
+  // Cache results (store plain JS objects)
+  setCache(cacheKey, newsArticles);
+
+  return res
     .status(200)
     .json(
       new ApiResponse(200, newsArticles, "News articles fetched successfully")

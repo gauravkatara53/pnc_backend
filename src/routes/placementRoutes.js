@@ -8,6 +8,8 @@ import {
   getPlacementsByCollegeIdController,
   getPlacementStatsByCollegeController,
   createPlacementStatsController,
+  createTopRecruiterController,
+  getTopRecruiterController,
 } from "../controllers/placementController.js";
 
 const router = Router();
@@ -29,4 +31,7 @@ router.get("/:slug", getPlacementsByCollegeIdController);
 router.post("/create/:slug/stats", createPlacementStatsController);
 router.get("/get/:slug/stats", getPlacementStatsByCollegeController);
 
+//create top recruiters
+router.post("/create/:slug/recruiters", createTopRecruiterController);
+router.get("/get/:slug/recruiters", getTopRecruiterController);
 export default router;

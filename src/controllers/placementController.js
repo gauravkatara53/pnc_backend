@@ -7,6 +7,8 @@ import {
   getPlacementsServiceByCollegeId,
   getPlacementStatsByCollegeService,
   createPlacementStatsService,
+  createTopRecruiterService,
+  getTopRecruiterService,
 } from "../services/placementService.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { getCache, setCache } from "../utils/nodeCache.js";
@@ -154,3 +156,53 @@ export const getPlacementStatsByCollegeController = asyncHandler(
       );
   }
 );
+
+export const createTopRecruiterController = asyncHandler(async (req, res) => {
+  const { slug } = req.params;
+  const {
+    year,
+    totalRecruiters,
+    ppo,
+    average,
+    risePlacement,
+    bannerImage,
+    recruiters,
+  } = req.body;
+
+  const topRecruiter = await createTopRecruiterService(slug, {
+    year,
+    totalRecruiters,
+    ppo,
+    average,
+    risePlacement,
+    bannerImage,
+    recruiters,
+  });
+
+  res
+    .status(201)
+    .json(
+      new ApiResponse(201, topRecruiter, "Top Recruiters created successfully")
+    );
+});
+
+export const getTopRecruiterController = asyncHandler(async (req, res) => {
+  const { slug } = req.params;
+  const { year } = req.query;
+
+  const topRecruiter = await getTopRecruiterService(slug, Number(year));
+
+  if (!topRecruiter) {
+    return res
+      .status(404)
+      .json(
+        new ApiResponse(404, null, `Top recruiters not found for year ${year}`)
+      );
+  }
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, topRecruiter, "Top Recruiters fetched successfully")
+    );
+});

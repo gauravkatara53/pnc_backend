@@ -29,4 +29,18 @@ const flushCache = () => {
   return cache.flushAll();
 };
 
-export { setCache, getCache, deleteCache, flushCache };
+const getOrSetCache = async (key, fetchFn, ttl) => {
+  const cached = cache.get(key);
+
+  if (cached) {
+    console.log("CACHE HIT:", key);
+    return cached;
+  }
+
+  console.log("CACHE MISS:", key);
+  const fresh = await fetchFn();
+  cache.set(key, fresh, ttl);
+  return fresh;
+};
+
+export { setCache, getCache, deleteCache, flushCache, getOrSetCache };

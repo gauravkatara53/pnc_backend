@@ -87,3 +87,26 @@ export const getAllCutoffsController = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, cutoffs, "Cutoffs fetched successfully"));
 });
+/**
+ * Delete all cutoffs where slug starts with "iiit-"
+ */
+export const deleteAllIIITCutoffsController = asyncHandler(async (req, res) => {
+  const result = await Cutoff.deleteMany({
+    slug: { $regex: /^iiit-/ },
+    year: 2025,
+    round: { $in: ["CSAB-1", "CSAB-2"] },
+  });
+
+  // Invalidate all related cache entries
+  deleteCacheByPrefix("cutoffs:iiit-");
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { deletedCount: result.deletedCount },
+        "All IIIT cutoffs for year 2025 and round CSAB-1 or CSAB-2 deleted successfully"
+      )
+    );
+});

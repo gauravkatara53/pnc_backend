@@ -38,6 +38,35 @@ export const createPlacementController = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, placement, "Placement created successfully"));
 });
 
+// Bulk create placements
+export const bulkCreatePlacementController = asyncHandler(async (req, res) => {
+  const { slug } = req.params;
+  const placementsArray = req.body; // Expecting an array of placement objects
+
+  if (!Array.isArray(placementsArray) || placementsArray.length === 0) {
+    return res
+      .status(400)
+      .json(
+        new ApiResponse(400, null, "Request body must be a non-empty array")
+      );
+  }
+
+  // You should implement bulkCreatePlacementService in your service layer
+  const createdPlacements = await Promise.all(
+    placementsArray.map((placement) => createPlacementService(slug, placement))
+  );
+
+  res
+    .status(201)
+    .json(
+      new ApiResponse(
+        201,
+        createdPlacements,
+        "Placements created in bulk successfully"
+      )
+    );
+});
+
 // ✅ Update placement
 export const updatePlacementController = asyncHandler(async (req, res) => {
   const { slug } = req.params;

@@ -10,12 +10,15 @@ import {
   createPlacementStatsController,
   createTopRecruiterController,
   getTopRecruiterController,
+  bulkCreatePlacementController,
 } from "../controllers/placementController.js";
 
 const router = Router();
 
 // ✅ Create new placement
 router.post("/:slug/create", createPlacementController);
+
+router.post("/:slug/bulk-create", bulkCreatePlacementController);
 // ✅ Get placements all
 router.get("/list", getPlacementsController);
 // ✅ Update placement by ID

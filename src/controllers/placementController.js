@@ -11,8 +11,12 @@ import {
   getTopRecruiterService,
 } from "../services/placementService.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { getCache, setCache } from "../utils/nodeCache.js";
+
 // ✅ Create placement (slug from params)
+
+import { setCache, getCache, deleteCacheByPrefix } from "../utils/nodeCache.js";
+
+// ✅ Create new placement record
 export const createPlacementController = asyncHandler(async (req, res) => {
   const { slug } = req.params;
   const {
@@ -33,12 +37,15 @@ export const createPlacementController = asyncHandler(async (req, res) => {
     year,
   });
 
+  // Invalidate cache for this college's placements
+  deleteCacheByPrefix(`placements:${slug}`);
+
   res
     .status(201)
     .json(new ApiResponse(201, placement, "Placement created successfully"));
 });
 
-// Bulk create placements
+// ✅ Bulk create placements
 export const bulkCreatePlacementController = asyncHandler(async (req, res) => {
   const { slug } = req.params;
   const placementsArray = req.body; // Expecting an array of placement objects
@@ -51,10 +58,13 @@ export const bulkCreatePlacementController = asyncHandler(async (req, res) => {
       );
   }
 
-  // You should implement bulkCreatePlacementService in your service layer
   const createdPlacements = await Promise.all(
     placementsArray.map((placement) => createPlacementService(slug, placement))
   );
+
+  // Invalidate both cache keys for this slug to cover all cached listings
+  deleteCacheByPrefix(`placements:${slug}`); // For filter-based cache keys
+  deleteCacheByPrefix(`placementsBySlug:${slug}`); // For placements by college ID cache
 
   res
     .status(201)
@@ -72,6 +82,9 @@ export const updatePlacementController = asyncHandler(async (req, res) => {
   const { slug } = req.params;
   const placement = await updatePlacementService(slug, req.body);
 
+  // Invalidate cache for this college's placements
+  deleteCacheByPrefix(`placements:${slug}`);
+
   res
     .status(200)
     .json(new ApiResponse(200, placement, "Placement updated successfully"));
@@ -81,6 +94,9 @@ export const updatePlacementController = asyncHandler(async (req, res) => {
 export const deletePlacementController = asyncHandler(async (req, res) => {
   const { slug } = req.params;
   await deletePlacementService(slug);
+
+  // Invalidate cache for this college's placements
+  deleteCacheByPrefix(`placements:${slug}`);
 
   res
     .status(200)
@@ -155,6 +171,9 @@ export const createPlacementStatsController = asyncHandler(async (req, res) => {
     graph_url,
   });
 
+  // Invalidate cache for placement stats of this college
+  deleteCacheByPrefix(`placementStats:${slug}`);
+
   res
     .status(201)
     .json(
@@ -170,7 +189,6 @@ export const getPlacementStatsByCollegeController = asyncHandler(
   async (req, res) => {
     const { slug } = req.params;
     const { year } = req.query;
-
     // Pass both slug and year to the service
     const placementStats = await getPlacementStatsByCollegeService(slug, year);
 
@@ -207,6 +225,9 @@ export const createTopRecruiterController = asyncHandler(async (req, res) => {
     bannerImage,
     recruiters,
   });
+
+  // Invalidate cache for top recruiters of this college
+  deleteCacheByPrefix(`topRecruiters:${slug}`);
 
   res
     .status(201)

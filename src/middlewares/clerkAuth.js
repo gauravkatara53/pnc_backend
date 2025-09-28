@@ -1,9 +1,32 @@
-import { clerkMiddleware, requireAuth } from "@clerk/express";
+const { verifyToken } = require("@clerk/clerk-sdk-node");
 
-// Use this if you want auth info on req.auth but allow unauthenticated access
-export const clerkAuth = clerkMiddleware();
+/**
+ * Protects a route by requiring a valid Clerk JWT token.
+ * Usage: router.post("/create", protected, createController)
+ */
+async function protected(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization;
 
-// Use this to strictly protect routes, rejecting unauthenticated requests
-export const requireAuthMiddleware = requireAuth();
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Unauthorized: No token provided" });
+    }
 
-// You can export either or both, depending on your route needs
+    const token = authHeader.split(" ")[1];
+
+    // ✅ Verify Clerk JWT
+    const session = await verifyToken(token, {
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
+
+    // Attach Clerk user session to request
+    req.auth = session;
+
+    next();
+  } catch (err) {
+    console.error("❌ Clerk auth failed:", err.message);
+    return res.status(401).json({ error: "Unauthorized: Invalid token" });
+  }
+}
+
+module.exports = protected;

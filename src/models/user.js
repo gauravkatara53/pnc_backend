@@ -12,6 +12,7 @@ const userSchema = new mongoose.Schema({
     enum: ["student", "admin", "moderator"], // allowed roles
     default: "student",
   },
+  password: { type: String }, // hashed password
   createdAt: { type: Date, default: Date.now },
 });
 

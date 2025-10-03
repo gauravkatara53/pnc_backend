@@ -11,7 +11,7 @@ import {
   getTopRecruiterService,
 } from "../services/placementService.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-
+import redis from "../libs/redis.js";
 // ✅ Create placement (slug from params)
 
 import { setCache, getCache, deleteCacheByPrefix } from "../utils/nodeCache.js";
@@ -104,16 +104,14 @@ export const deletePlacementController = asyncHandler(async (req, res) => {
 });
 
 export const getPlacementsController = asyncHandler(async (req, res) => {
-  // Extract filters from query params. Use default or null if not provided.
   const { slug, branch, year } = req.query;
 
-  // Build a filter object for your service/database query.
+  // Build filter
   const filter = {};
   if (slug) filter.slug = slug;
   if (branch) filter.branch = branch;
   if (year) filter.year = year;
 
-  // Pass the filter to your service function.
   const placements = await getPlacementsService(filter);
 
   res
@@ -123,30 +121,64 @@ export const getPlacementsController = asyncHandler(async (req, res) => {
 
 export const getPlacementsByCollegeIdController = asyncHandler(
   async (req, res) => {
-    const { slug } = req.params; // assuming collegeId is passed as a URL param
+    const { slug } = req.params;
 
     if (!slug) {
       return res.status(400).json({ message: "slug is required" });
     }
 
-    // Cache key for this slug
     const cacheKey = `placementsBySlug:${slug}`;
 
-    // Try to get cached placements
+    // 1. Try NodeCache (L1)
     let placements = getCache(cacheKey);
-
-    if (!placements) {
-      // If not cached, query DB
-      placements = await getPlacementsServiceByCollegeId({ slug });
-
-      // Cache the result with default TTL
-      setCache(cacheKey, placements);
+    if (placements) {
+      console.log("⚡ L1 NodeCache hit:", cacheKey);
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(
+            200,
+            placements,
+            "Placements fetched successfully (L1 cache)"
+          )
+        );
     }
 
-    res
+    // 2. Try Redis (L2)
+    const cachedRedis = await redis.get(cacheKey);
+    if (cachedRedis) {
+      console.log("⚡ L2 Redis hit:", cacheKey);
+
+      placements = JSON.parse(cachedRedis);
+
+      // Refill NodeCache for faster local hits
+      setCache(cacheKey, placements, 300); // 5 min TTL in NodeCache
+
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(
+            200,
+            placements,
+            "Placements fetched successfully (L2 cache)"
+          )
+        );
+    }
+
+    // 3. Cache miss → Fetch from DB
+    console.log("❌ Cache miss (DB fetch):", cacheKey);
+    placements = await getPlacementsServiceByCollegeId({ slug });
+
+    // Save into both caches
+    setCache(cacheKey, placements, 300); // NodeCache (5 min)
+    await redis.set(cacheKey, JSON.stringify(placements), "EX", 600); // Redis (10 min)
+
+    console.log("✅ Cached in L1 + L2:", cacheKey);
+
+    return res
       .status(200)
       .json(
-        new ApiResponse(200, placements, "Placements fetched successfully")
+        new ApiResponse(200, placements, "Placements fetched successfully (DB)")
       );
   }
 );
@@ -189,7 +221,7 @@ export const getPlacementStatsByCollegeController = asyncHandler(
   async (req, res) => {
     const { slug } = req.params;
     const { year } = req.query;
-    // Pass both slug and year to the service
+
     const placementStats = await getPlacementStatsByCollegeService(slug, year);
 
     res

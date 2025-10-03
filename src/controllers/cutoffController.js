@@ -3,21 +3,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import Cutoff from "../models/cutoffModel.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { setCache, getCache, deleteCacheByPrefix } from "../utils/nodeCache.js";
-
-// Utility to build filter from query params
-const buildFilter = (query) => {
-  const filter = {};
-  if (query.slug) filter.slug = query.slug;
-  if (query.examType) filter.examType = query.examType;
-  if (query.year) filter.year = Number(query.year);
-  if (query.branch) filter.branch = query.branch;
-  if (query.quota) filter.quota = query.quota;
-  if (query.course) filter.course = query.course;
-  if (query.seatType) filter.seatType = query.seatType;
-  if (query.subCategory) filter.subCategory = query.subCategory;
-  if (query.round) filter.round = query.round; // Keep as string per schema
-  return filter;
-};
+import redis from "../libs/redis.js";
 
 // Create cutoff
 export const createCutoffController = asyncHandler(async (req, res) => {
@@ -72,21 +58,64 @@ export const deleteCutoffController = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, null, "Cutoff deleted successfully"));
 });
 
-// Get all cutoffs with filtering and caching
+const buildFilter = (query) => {
+  const filter = {};
+  if (query.slug) filter.slug = query.slug;
+  if (query.examType) filter.examType = query.examType;
+  if (query.year) filter.year = Number(query.year);
+  if (query.branch) filter.branch = query.branch;
+  if (query.quota) filter.quota = query.quota;
+  if (query.course) filter.course = query.course;
+  if (query.seatType) filter.seatType = query.seatType;
+  if (query.subCategory) filter.subCategory = query.subCategory;
+  if (query.round) filter.round = query.round; // Keep as string per schema
+  return filter;
+};
+
 export const getAllCutoffsController = asyncHandler(async (req, res) => {
   const filter = buildFilter(req.query);
   const cacheKey = `cutoffs:${JSON.stringify(filter)}`;
-  let cutoffs = getCache(cacheKey);
 
-  if (!cutoffs) {
-    cutoffs = await Cutoff.find(filter).lean();
-    setCache(cacheKey, cutoffs, 24 * 60 * 60); // cache 1 day
+  // 1. Try Node-cache (L1)
+  let cutoffs = getCache(cacheKey);
+  if (cutoffs) {
+    console.log("⚡ L1 Node-cache hit:", cacheKey);
+    return res
+      .status(200)
+      .json(new ApiResponse(200, cutoffs, "Cutoffs fetched successfully (L1)"));
   }
 
-  res
+  // 2. Try Redis (L2)
+  const cachedRedis = await redis.get(cacheKey);
+  if (cachedRedis) {
+    console.log("⚡ L2 Redis hit:", cacheKey);
+
+    cutoffs = JSON.parse(cachedRedis);
+
+    // Save into Node-cache for next time (super fast)
+    setCache(cacheKey, cutoffs, 24 * 60 * 60);
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, cutoffs, "Cutoffs fetched successfully (L2)"));
+  }
+
+  // 3. Cache miss → fetch from DB
+  console.log("❌ Cache miss (DB fetch):", cacheKey);
+
+  cutoffs = await Cutoff.find(filter).lean();
+
+  // Save into both caches (1 day TTL)
+  setCache(cacheKey, cutoffs, 24 * 60 * 60); // Node-cache
+  await redis.set(cacheKey, JSON.stringify(cutoffs), "EX", 24 * 60 * 60); // Redis
+
+  console.log("✅ Cached in Node-cache + Redis:", cacheKey);
+
+  return res
     .status(200)
-    .json(new ApiResponse(200, cutoffs, "Cutoffs fetched successfully"));
+    .json(new ApiResponse(200, cutoffs, "Cutoffs fetched successfully (DB)"));
 });
+
 /**
  * Delete all cutoffs where slug starts with "iiit-"
  */
@@ -110,5 +139,3 @@ export const deleteAllIIITCutoffsController = asyncHandler(async (req, res) => {
       )
     );
 });
-
-

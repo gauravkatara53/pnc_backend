@@ -9,7 +9,7 @@ import {
 } from "../utils/nodeCache.js";
 import PlacementStats from "../models/placementStatsModel.js";
 import TopRecruiters from "../models/topRecuritermodel.js";
-
+import redis from "../libs/redis.js";
 // ✅ Create new placement record
 export const createPlacementService = async (slug, data) => {
   if (!slug) throw new Error("College slug is required to create placement");
@@ -60,18 +60,41 @@ const getCacheKey = (filter) => {
 };
 
 export const getPlacementsService = async (filter) => {
-  const cacheKey = getCacheKey(filter);
-  const cachedData = getCache(cacheKey);
+  const cacheKey = `placements:${JSON.stringify(filter)}`;
+
+  // 1. Try NodeCache (L1)
+  let cachedData = getCache(cacheKey);
   if (cachedData) {
+    console.log("⚡ L1 NodeCache hit:", cacheKey);
     return cachedData;
   }
-  const placements = await Placement.find(filter);
-  setCache(cacheKey, placements);
+
+  // 2. Try Redis (L2)
+  const cachedRedis = await redis.get(cacheKey);
+  if (cachedRedis) {
+    console.log("⚡ L2 Redis hit:", cacheKey);
+    const parsed = JSON.parse(cachedRedis);
+
+    // Refill NodeCache for faster next time
+    setCache(cacheKey, parsed, 300); // 5 min NodeCache
+    return parsed;
+  }
+
+  // 3. Cache miss → Fetch from DB
+  console.log("❌ Cache miss (DB fetch):", cacheKey);
+  const placements = await Placement.find(filter).lean();
+
+  // Save into both caches
+  setCache(cacheKey, placements, 300); // NodeCache → 5 min
+  await redis.set(cacheKey, JSON.stringify(placements), "EX", 600); // Redis → 10 min
+
+  console.log("✅ Cached in NodeCache + Redis:", cacheKey);
+
   return placements;
 };
 
 export const getPlacementsServiceByCollegeId = async (filter) => {
-  return Placement.find(filter);
+  return Placement.find(filter).lean();
 };
 
 export const createPlacementStatsService = async (slug, data) => {
@@ -91,11 +114,37 @@ export const getPlacementStatsByCollegeService = async (slug, year) => {
   if (year) {
     query.year = Number(year);
   }
+
   const cacheKey = `placementStats:${slug}:${year || "all"}`;
+
+  // 1. Try NodeCache (L1)
   let placementStats = getCache(cacheKey);
-  if (placementStats) return placementStats;
-  placementStats = await PlacementStats.find(query);
-  setCache(cacheKey, placementStats);
+  if (placementStats) {
+    console.log("⚡ L1 NodeCache hit:", cacheKey);
+    return placementStats;
+  }
+
+  // 2. Try Redis (L2)
+  const cachedRedis = await redis.get(cacheKey);
+  if (cachedRedis) {
+    console.log("⚡ L2 Redis hit:", cacheKey);
+    placementStats = JSON.parse(cachedRedis);
+
+    // Refill NodeCache for faster future hits
+    setCache(cacheKey, placementStats, 300); // NodeCache: 5 min
+    return placementStats;
+  }
+
+  // 3. Cache miss → fetch from DB
+  console.log("❌ Cache miss (DB fetch):", cacheKey);
+  placementStats = await PlacementStats.find(query).lean();
+
+  // Save into both caches
+  setCache(cacheKey, placementStats, 300); // NodeCache: 5 min
+  await redis.set(cacheKey, JSON.stringify(placementStats), "EX", 600); // Redis: 10 min
+
+  console.log("✅ Cached in L1 + L2:", cacheKey);
+
   return placementStats;
 };
 
@@ -117,13 +166,35 @@ export const getTopRecruiterService = async (slug, year) => {
   if (!year) throw new Error("Year is required to fetch top recruiters");
 
   const cacheKey = `topRecruiters:${slug}:${year}`;
-  return await getOrSetCache(
-    cacheKey,
-    async () => {
-      const data = await TopRecruiters.findOne({ slug, year }).lean();
-      if (!data) return null;
-      return data;
-    },
-    60 * 60 * 24
-  );
+
+  // 1. Try NodeCache (L1)
+  let recruiterData = getCache(cacheKey);
+  if (recruiterData) {
+    console.log("⚡ L1 NodeCache hit:", cacheKey);
+    return recruiterData;
+  }
+
+  // 2. Try Redis (L2)
+  const cachedRedis = await redis.get(cacheKey);
+  if (cachedRedis) {
+    console.log("⚡ L2 Redis hit:", cacheKey);
+    recruiterData = JSON.parse(cachedRedis);
+
+    // Refill NodeCache
+    setCache(cacheKey, recruiterData, 300); // NodeCache TTL 5 min
+    return recruiterData;
+  }
+
+  // 3. Cache miss → DB query
+  console.log("❌ Cache miss (DB fetch):", cacheKey);
+  recruiterData = await TopRecruiters.findOne({ slug, year }).lean();
+  if (!recruiterData) return null;
+
+  // Save into both caches
+  setCache(cacheKey, recruiterData, 300); // NodeCache (5 min)
+  await redis.set(cacheKey, JSON.stringify(recruiterData), "EX", 600); // Redis (10 min)
+
+  console.log("✅ Cached in L1 + L2:", cacheKey);
+
+  return recruiterData;
 };

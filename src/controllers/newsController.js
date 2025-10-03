@@ -39,6 +39,8 @@ export const createNewsArticleController = asyncHandler(async (req, res) => {
 
 import { setCache, getCache } from "../utils/nodeCache.js";
 
+import redis from "../libs/redis.js";
+
 export const getNewsArticlesController = asyncHandler(async (req, res) => {
   const {
     category,
@@ -55,7 +57,7 @@ export const getNewsArticlesController = asyncHandler(async (req, res) => {
   const pageNum = Math.max(1, Number(page) || 1);
   const limitNum = Math.max(1, Math.min(100, Number(limit) || 10));
 
-  // Create deterministic cache key
+  // Create deterministic cache key (sorted query)
   const orderedQuery = {};
   Object.keys(req.query)
     .sort()
@@ -64,15 +66,32 @@ export const getNewsArticlesController = asyncHandler(async (req, res) => {
     });
   const cacheKey = `news:list:${JSON.stringify(orderedQuery)}`;
 
-  // Check cache
-  const cached = getCache(cacheKey);
+  // 1. Try Node-cache (L1, fast)
+  let cached = getCache(cacheKey);
   if (cached) {
+    console.log("⚡ L1 Node-cache hit:", cacheKey);
     return res
       .status(200)
-      .json(new ApiResponse(200, cached, "News articles fetched (cached)"));
+      .json(new ApiResponse(200, cached, "News articles fetched (L1 cache)"));
   }
 
-  // Build filter
+  // 2. Try Redis (L2, shared)
+  const cachedRedis = await redis.get(cacheKey);
+  if (cachedRedis) {
+    console.log("⚡ L2 Redis hit:", cacheKey);
+
+    const parsed = JSON.parse(cachedRedis);
+    // Re-fill Node-cache for super fast next request
+    setCache(cacheKey, parsed, 60); // 1 min local cache
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, parsed, "News articles fetched (L2 cache)"));
+  }
+
+  // 3. Cache miss → build filter and query DB
+  console.log("❌ Cache miss (DB fetch):", cacheKey);
+
   const filter = {};
   if (category) filter.category = category;
 
@@ -104,12 +123,11 @@ export const getNewsArticlesController = asyncHandler(async (req, res) => {
       filter.$or = [
         { title: { $regex: kw, $options: "i" } },
         { summary: { $regex: kw, $options: "i" } },
-        { "content.text": { $regex: kw, $options: "i" } }, // optional if you store full content
+        { "content.text": { $regex: kw, $options: "i" } },
       ];
     }
   }
 
-  // 🔥 Always latest → oldest
   const sortCondition = { publishDate: -1 };
   const skip = (pageNum - 1) * limitNum;
 
@@ -140,36 +158,54 @@ export const getNewsArticlesController = asyncHandler(async (req, res) => {
     },
   };
 
-  // Cache response
-  setCache(cacheKey, responsePayload);
+  // Save to both caches
+  setCache(cacheKey, responsePayload, 60); // Node-cache → 1 min
+  await redis.set(cacheKey, JSON.stringify(responsePayload), "EX", 300); // Redis → 5 min
+
+  console.log("✅ Cached in Node-cache + Redis:", cacheKey);
 
   return res
     .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        responsePayload,
-        "News articles fetched successfully"
-      )
-    );
+    .json(new ApiResponse(200, responsePayload, "News articles fetched (DB)"));
 });
 
 export const getNewsArticleBySlugController = asyncHandler(async (req, res) => {
   const { slug } = req.params;
   const cacheKey = `news:slug:${slug}`;
 
-  const cached = getCache(cacheKey);
+  // 1. Try Node-cache (L1)
+  let cached = getCache(cacheKey);
   if (cached) {
+    console.log("⚡ L1 Node-cache hit:", cacheKey);
     return res.status(200).json(cached);
   }
 
-  const newsArticle = await NewsArticle.findOne({ slug }).lean(); // <--- use lean here
+  // 2. Try Redis (L2)
+  const cachedRedis = await redis.get(cacheKey);
+  if (cachedRedis) {
+    console.log("⚡ L2 Redis hit:", cacheKey);
+
+    const parsed = JSON.parse(cachedRedis);
+    setCache(cacheKey, parsed, 300); // re-fill Node-cache (5 min)
+
+    return res.status(200).json(parsed);
+  }
+
+  // 3. Cache miss → fetch from DB
+  console.log("❌ Cache miss (DB fetch):", cacheKey);
+
+  const newsArticle = await NewsArticle.findOne({ slug }).lean();
   if (!newsArticle) {
     return res.status(404).json({ message: "Article not found." });
   }
 
-  setCache(cacheKey, newsArticle); // Cache plain object
-  res.status(200).json(newsArticle);
+  // Save into both caches
+  setCache(cacheKey, newsArticle, 300); // Node-cache (5 min)
+  await redis.set(cacheKey, JSON.stringify(newsArticle), "EX", 300); // Redis (5 min)
+
+  console.log("✅ Cached in Node-cache + Redis:", cacheKey);
+
+  return res.status(200).json(newsArticle);
 });
 export const getAllNewsSlugsController = asyncHandler(async (req, res) => {
   const slugs = await NewsArticle.find({}, "slug").lean();
@@ -188,7 +224,6 @@ export const getNewsArticlesTrendingController = asyncHandler(
       const bypass = String(req.query.bypassCache || "") === "true";
       const invalidate = String(req.query.invalidateCache || "") === "true";
 
-      // Helpful server logs for debugging
       console.log(
         "[trending] request received, bypassCache=",
         bypass,
@@ -196,56 +231,67 @@ export const getNewsArticlesTrendingController = asyncHandler(
         invalidate
       );
 
-      // Optionally clear cache (for testing)
+      // 🔹 1. Invalidate cache if requested
       if (invalidate) {
         try {
-          // if you have delCache exported from utils/nodeCache.js
+          // Clear from NodeCache
           const { delCache } = await import("../utils/nodeCache.js");
           if (delCache) {
             delCache(cacheKey);
-            console.log("[trending] cache invalidated:", cacheKey);
+            console.log("[trending] L1 cache invalidated:", cacheKey);
           }
+          // Clear from Redis
+          await redis.del(cacheKey);
+          console.log("[trending] L2 Redis cache invalidated:", cacheKey);
         } catch (e) {
-          console.warn(
-            "[trending] delCache not available or error invalidating cache:",
-            e
-          );
+          console.warn("[trending] error invalidating cache:", e);
         }
       }
 
-      // Check cache unless bypass requested
+      // 🔹 2. Try cache unless bypass=true
       if (!bypass) {
-        const cached = getCache(cacheKey);
-        console.log(
-          "[trending] cached value:",
-          cached === undefined
-            ? "undefined"
-            : Array.isArray(cached)
-            ? `array(${cached.length})`
-            : typeof cached
-        );
+        // Check NodeCache (L1)
+        let cached = getCache(cacheKey);
         if (cached && Array.isArray(cached) && cached.length > 0) {
+          console.log("[trending] ⚡ L1 NodeCache hit");
           return res
             .status(200)
             .json(
               new ApiResponse(
                 200,
                 { articles: cached },
-                "Trending news fetched (cached)"
+                "Trending news fetched (L1 cache)"
+              )
+            );
+        }
+
+        // Check Redis (L2)
+        const cachedRedis = await redis.get(cacheKey);
+        if (cachedRedis) {
+          console.log("[trending] ⚡ L2 Redis hit");
+          const parsed = JSON.parse(cachedRedis);
+
+          // Refill NodeCache
+          setCache(cacheKey, parsed, 60); // 1 min local cache
+
+          return res
+            .status(200)
+            .json(
+              new ApiResponse(
+                200,
+                { articles: parsed },
+                "Trending news fetched (L2 cache)"
               )
             );
         }
       }
 
-      // Log how many docs match trending true
+      // 🔹 3. If cache miss → DB query
       const trendingCount = await NewsArticle.countDocuments({
         trending: true,
       });
-      console.log(
-        `[trending] countDocuments({ trending: true }) => ${trendingCount}`
-      );
+      console.log(`[trending] countDocuments => ${trendingCount}`);
 
-      // Fetch from DB directly
       const newsArticles = await NewsArticle.find({ trending: true })
         .sort({ publishDate: -1 })
         .limit(2)
@@ -254,10 +300,13 @@ export const getNewsArticlesTrendingController = asyncHandler(
         )
         .lean();
 
-      console.log("[trending] fetched from DB, length=", newsArticles.length);
+      console.log("[trending] fetched from DB:", newsArticles.length);
 
-      // Cache result
-      setCache(cacheKey, newsArticles);
+      // 🔹 4. Save into both caches
+      setCache(cacheKey, newsArticles, 60); // NodeCache → 1 min
+      await redis.set(cacheKey, JSON.stringify(newsArticles), "EX", 300); // Redis → 5 min
+
+      console.log("[trending] ✅ Cached in L1 + L2");
 
       return res
         .status(200)
@@ -265,7 +314,7 @@ export const getNewsArticlesTrendingController = asyncHandler(
           new ApiResponse(
             200,
             { articles: newsArticles },
-            "Latest 2 trending news fetched successfully"
+            "Latest 2 trending news fetched (DB)"
           )
         );
     } catch (error) {

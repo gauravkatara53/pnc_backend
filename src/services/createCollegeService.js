@@ -1,6 +1,6 @@
 import CollegeProfile from "../models/collegeProfileModel.js";
 import { deleteCacheByPrefix, getCache, setCache } from "../utils/nodeCache.js";
-import mongoose from "mongoose";
+import redis from "../libs/redis.js";
 export const createCollegeService = async ({
   name,
   slug,
@@ -81,15 +81,38 @@ export const getCollegeBySlugService = async (slug) => {
 
   const cacheKey = `college:slug:${slug}`;
 
-  // Try cache first
+  // 1. Try Node-cache (L1)
   let college = getCache(cacheKey);
-  if (college) return college;
+  if (college) {
+    console.log("⚡ L1 Node-cache hit:", cacheKey);
+    return college; // already JS object
+  }
 
-  // Use lean() → plain object
+  // 2. Try Redis (L2)
+  const cachedRedis = await redis.get(cacheKey);
+  if (cachedRedis) {
+    console.log("⚡ L2 Redis hit:", cacheKey);
+
+    college = JSON.parse(cachedRedis);
+
+    // Save into Node-cache for next time (super-fast hit)
+    setCache(cacheKey, college);
+
+    return college;
+  }
+
+  // 3. Cache miss → fetch from DB
+  console.log("❌ Cache miss (DB fetch):", cacheKey);
+
   college = await CollegeProfile.findOne({ slug }).lean();
   if (!college) throw new Error("College not found");
 
-  setCache(cacheKey, college); // safe
+  // Save into both caches
+  setCache(cacheKey, college); // L1 (node-cache)
+  await redis.set(cacheKey, JSON.stringify(college), "EX", 600); // L2 (5 mins TTL)
+
+  console.log("✅ Cached in Node-cache + Redis:", cacheKey);
+
   return college;
 };
 
@@ -100,12 +123,32 @@ export const getAllCollegesService = async (filters, page, limit) => {
     filters
   )}:page=${page}:limit=${limit}`;
 
+  // 1. Try Node-cache (L1, ~1 minute)
   let cachedResult = getCache(cacheKey);
-  if (cachedResult) return cachedResult;
+  if (cachedResult) {
+    console.log("⚡ L1 Node-cache hit:", cacheKey);
+    return cachedResult;
+  }
+
+  // 2. Try Redis (L2, 10 minutes)
+  const cachedRedis = await redis.get(cacheKey);
+  if (cachedRedis) {
+    console.log("⚡ L2 Redis hit:", cacheKey);
+
+    const parsed = JSON.parse(cachedRedis);
+
+    // Put into Node-cache (1 min TTL by default)
+    setCache(cacheKey, parsed);
+
+    return parsed;
+  }
+
+  // 3. Cache miss → fetch from DB
+  console.log("❌ Cache miss (DB fetch):", cacheKey);
 
   const query = {};
 
-  // Search term filter
+  // Search filter
   if (filters.searchTerm) {
     const searchRegex = new RegExp(filters.searchTerm, "i");
     query.$or = [
@@ -117,18 +160,11 @@ export const getAllCollegesService = async (filters, page, limit) => {
   }
 
   // Multi-value filters
-  if (filters.state) {
-    query.state = { $in: filters.state.split(",") };
-  }
-  if (filters.instituteType) {
+  if (filters.state) query.state = { $in: filters.state.split(",") };
+  if (filters.instituteType)
     query.instituteType = { $in: filters.instituteType.split(",") };
-  }
-  if (filters.tag) {
-    query.tag = { $in: filters.tag.split(",") };
-  }
-  if (filters.stream) {
-    query.stream = { $in: filters.stream.split(",") }; // ✅ fixed lowercase field
-  }
+  if (filters.tag) query.tag = { $in: filters.tag.split(",") };
+  if (filters.stream) query.stream = { $in: filters.stream.split(",") };
 
   // Range filters
   if (filters.minFees) query.fees = { $gte: Number(filters.minFees) };
@@ -146,7 +182,7 @@ export const getAllCollegesService = async (filters, page, limit) => {
 
   const skip = (page - 1) * limit;
 
-  // Fields to return
+  // Projection
   const projection = {
     name: 1,
     slug: 1,
@@ -168,10 +204,10 @@ export const getAllCollegesService = async (filters, page, limit) => {
     stream: 1,
   };
 
-  // Fetch total count for pagination
+  // Count
   const totalCount = await CollegeProfile.countDocuments(query);
 
-  // Fetch paginated results with only needed fields
+  // Results
   const colleges = await CollegeProfile.find(query, projection)
     .sort(sort)
     .skip(skip)
@@ -179,7 +215,12 @@ export const getAllCollegesService = async (filters, page, limit) => {
     .lean();
 
   const result = { colleges, totalCount };
-  setCache(cacheKey, result);
+
+  // Save to both caches
+  setCache(cacheKey, result); // Node-cache (~1 min, default TTL)
+  await redis.set(cacheKey, JSON.stringify(result), "EX", 600); // Redis (10 min)
+
+  console.log("✅ Cached in Node-cache + Redis:", cacheKey);
 
   return result;
 };

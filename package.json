@@ -9,6 +9,7 @@
     "express": "^5.1.0",
     "express-session": "^1.18.2",
     "imagekit": "^6.0.0",
+    "ioredis": "^5.8.0",
     "mime-types": "^3.0.1",
     "mongoose": "^8.18.0",
     "multer": "^2.0.2",

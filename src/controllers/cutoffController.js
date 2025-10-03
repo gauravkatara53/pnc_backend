@@ -110,3 +110,5 @@ export const deleteAllIIITCutoffsController = asyncHandler(async (req, res) => {
       )
     );
 });
+
+

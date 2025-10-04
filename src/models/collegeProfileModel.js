@@ -181,7 +181,7 @@ const collegeProfileSchema = new mongoose.Schema(
     contactEmail: String,
     contactPhone: String,
     website: String,
-    stream: { type: String, required: true },
+
     AlsoKnownAs: { type: String },
   },
   { timestamps: true }

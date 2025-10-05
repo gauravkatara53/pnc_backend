@@ -91,6 +91,7 @@ const collegeProfileSchema = new mongoose.Schema(
         "NIT",
         "IIIT",
         "GFTI",
+        "IIM",
         "Private",
         "State",
         "AIIMS",

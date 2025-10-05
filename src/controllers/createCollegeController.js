@@ -8,6 +8,8 @@ import {
 } from "../services/createCollegeService.js";
 import { imagekit } from "../utils/imageKitClient.js";
 import CollegeProfile from "../models/collegeProfileModel.js";
+import redis from "../libs/redis.js";
+import { flushCache } from "../utils/nodeCache.js";
 
 export const createCollegeController = asyncHandler(async (req, res) => {
   const {
@@ -41,6 +43,7 @@ export const createCollegeController = asyncHandler(async (req, res) => {
     campusFacilities,
     rankings,
     AlsoKnownAs,
+    stream,
   } = req.body;
 
   const college = await createCollegeService({
@@ -74,11 +77,51 @@ export const createCollegeController = asyncHandler(async (req, res) => {
     campusFacilities,
     rankings,
     AlsoKnownAs,
+    stream,
   });
+  // --- Clear Redis cache ---
+  await redis.flushall();
+
+  // --- Clear node-cache ---
+  await flushCache();
 
   res
     .status(201)
     .json(new ApiResponse(201, college, "College created successfully"));
+});
+
+export const updateCollegeProfileController = asyncHandler(async (req, res) => {
+  const { slug } = req.params;
+  const updateData = req.body;
+
+  // Find and update the college profile by slug
+  const updatedCollege = await CollegeProfile.findOneAndUpdate(
+    { slug },
+    updateData,
+    { new: true, runValidators: true }
+  );
+
+  if (!updatedCollege) {
+    return res
+      .status(404)
+      .json(new ApiResponse(404, null, "College not found"));
+  }
+
+  // --- Clear Redis cache ---
+  await redis.flushall();
+
+  // --- Clear node-cache ---
+  await flushCache();
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        updatedCollege,
+        "College profile updated successfully"
+      )
+    );
 });
 
 // ✅ Get single college by ID
@@ -122,7 +165,7 @@ export const getAllCollegesController = asyncHandler(async (req, res) => {
 // Controller: Upload profile picture for a college
 export const uploadCollegeProfilePic = async (req, res) => {
   try {
-    const { collegeId } = req.params;
+    const { slug } = req.params;
 
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded!" });
@@ -139,9 +182,9 @@ export const uploadCollegeProfilePic = async (req, res) => {
       useUniqueFileName: true,
     });
 
-    // Update college profile with new image URL
-    const college = await CollegeProfile.findByIdAndUpdate(
-      collegeId,
+    // Update college profile with new image URL using slug
+    const college = await CollegeProfile.findOneAndUpdate(
+      { slug },
       { image_url: uploadResponse.url },
       { new: true } // return updated document
     );
@@ -149,7 +192,11 @@ export const uploadCollegeProfilePic = async (req, res) => {
     if (!college) {
       return res.status(404).json({ message: "College not found" });
     }
+    // --- Clear Redis cache ---
+    await redis.flushall();
 
+    // --- Clear node-cache ---
+    await flushCache();
     res.status(200).json({
       success: true,
       message: "Profile picture uploaded successfully",
@@ -193,7 +240,11 @@ export const uploadPlacementAnalytics = async (req, res) => {
     if (!college) {
       return res.status(404).json({ message: "College not found" });
     }
+    // --- Clear Redis cache ---
+    await redis.flushall();
 
+    // --- Clear node-cache ---
+    await flushCache();
     res.status(200).json({
       success: true,
       message: "Placement analytics uploaded successfully",

@@ -15,7 +15,11 @@ import redis from "../libs/redis.js";
 // ✅ Create placement (slug from params)
 
 import { setCache, getCache, deleteCacheByPrefix } from "../utils/nodeCache.js";
+import PlacementStats from "../models/placementStatsModel.js";
+import TopRecruiters from "../models/topRecuritermodel.js";
+import { imagekit } from "../utils/imageKitClient.js";
 
+import { flushCache } from "../utils/nodeCache.js";
 // ✅ Create new placement record
 export const createPlacementController = asyncHandler(async (req, res) => {
   const { slug } = req.params;
@@ -79,11 +83,11 @@ export const bulkCreatePlacementController = asyncHandler(async (req, res) => {
 
 // ✅ Update placement
 export const updatePlacementController = asyncHandler(async (req, res) => {
-  const { slug } = req.params;
-  const placement = await updatePlacementService(slug, req.body);
+  const { id } = req.params;
+  const placement = await updatePlacementService(id, req.body);
 
   // Invalidate cache for this college's placements
-  deleteCacheByPrefix(`placements:${slug}`);
+  deleteCacheByPrefix(`placements:${id}`);
 
   res
     .status(200)
@@ -92,11 +96,11 @@ export const updatePlacementController = asyncHandler(async (req, res) => {
 
 // ✅ Delete placement
 export const deletePlacementController = asyncHandler(async (req, res) => {
-  const { slug } = req.params;
-  await deletePlacementService(slug);
+  const { id } = req.params;
+  await deletePlacementService(id);
 
   // Invalidate cache for this college's placements
-  deleteCacheByPrefix(`placements:${slug}`);
+  deleteCacheByPrefix(`placements:${id}`);
 
   res
     .status(200)
@@ -217,6 +221,55 @@ export const createPlacementStatsController = asyncHandler(async (req, res) => {
     );
 });
 
+// upload image
+export const uploadPlacementStatsGraphController = asyncHandler(
+  async (req, res) => {
+    try {
+      const { _id } = req.params;
+
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded!" });
+      }
+
+      // Generate a unique filename
+      const fileName = `${Date.now()}-${req.file.originalname}`;
+
+      // Upload to ImageKit
+      const uploadResponse = await imagekit.upload({
+        file: req.file.buffer, // Multer memory buffer
+        fileName,
+        folder: "/college-profiles", // 👈 organized folder
+        useUniqueFileName: true,
+      });
+
+      // Update college profile with new image URL using _id
+      const college = await PlacementStats.findOneAndUpdate(
+        { _id },
+        { graph_url: uploadResponse.url },
+        { new: true } // return updated document
+      );
+
+      if (!college) {
+        return res.status(404).json({ message: "College not found" });
+      }
+      // --- Clear Redis cache ---
+      await redis.flushall();
+
+      // --- Clear node-cache ---
+      await flushCache();
+      res.status(200).json({
+        success: true,
+        message: "Profile picture uploaded successfully",
+        imageUrl: uploadResponse.url,
+        college,
+      });
+    } catch (err) {
+      console.error("Error uploading college profile pic:", err.message);
+      res.status(500).json({ message: err.message });
+    }
+  }
+);
+
 export const getPlacementStatsByCollegeController = asyncHandler(
   async (req, res) => {
     const { slug } = req.params;
@@ -287,4 +340,142 @@ export const getTopRecruiterController = asyncHandler(async (req, res) => {
     .json(
       new ApiResponse(200, topRecruiter, "Top Recruiters fetched successfully")
     );
+});
+
+export const getAllPlacementStatsController = asyncHandler(async (req, res) => {
+  const { slug, year } = req.query;
+
+  // Build filter object
+  const filter = {};
+  if (slug) filter.slug = slug;
+  if (year) filter.year = year;
+
+  // Directly query the PlacementStats model (assuming you have it imported)
+  const placementStats = await PlacementStats.find(filter);
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        placementStats,
+        "All placement stats fetched successfully"
+      )
+    );
+});
+
+export const deletePlacementStatsController = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const deleted = await PlacementStats.findByIdAndDelete(id);
+
+  if (!deleted) {
+    return res
+      .status(404)
+      .json(new ApiResponse(404, null, "Placement stats not found"));
+  }
+
+  // Invalidate cache for placement stats of this college
+  if (deleted.slug) {
+    deleteCacheByPrefix(`placementStats:${deleted.slug}`);
+  }
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, null, "Placement stats deleted successfully"));
+});
+
+export const updatePlacementStatsController = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const updateData = req.body;
+
+  const updated = await PlacementStats.findByIdAndUpdate(id, updateData, {
+    new: true,
+    runValidators: true,
+  });
+
+  if (!updated) {
+    return res
+      .status(404)
+      .json(new ApiResponse(404, null, "Placement stats not found"));
+  }
+
+  // Invalidate cache for placement stats of this college
+  if (updated.slug) {
+    deleteCacheByPrefix(`placementStats:${updated.slug}`);
+  }
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, updated, "Placement stats updated successfully")
+    );
+});
+
+export const getAllTopRecruitersController = asyncHandler(async (req, res) => {
+  const { slug, year } = req.query;
+
+  // Build filter object
+  const filter = {};
+  if (slug) filter.slug = slug;
+  if (year) filter.year = Number(year);
+
+  // Directly query the TopRecruiters model (assuming you have it imported)
+  const topRecruiters = await TopRecruiters.find(filter);
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        topRecruiters,
+        "All top recruiters fetched successfully"
+      )
+    );
+});
+
+export const deleteTopRecruiterController = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const deleted = await TopRecruiters.findByIdAndDelete(id);
+
+  if (!deleted) {
+    return res
+      .status(404)
+      .json(new ApiResponse(404, null, "Top recruiter not found"));
+  }
+
+  // Invalidate cache for top recruiters of this college
+  if (deleted.slug) {
+    deleteCacheByPrefix(`topRecruiters:${deleted.slug}`);
+  }
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, null, "Top recruiter deleted successfully"));
+});
+
+export const updateTopRecruiterController = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const updateData = req.body;
+
+  const updated = await TopRecruiters.findByIdAndUpdate(id, updateData, {
+    new: true,
+    runValidators: true,
+  });
+
+  if (!updated) {
+    return res
+      .status(404)
+      .json(new ApiResponse(404, null, "Top recruiter not found"));
+  }
+
+  // Invalidate cache for top recruiters of this college
+  if (updated.slug) {
+    deleteCacheByPrefix(`topRecruiters:${updated.slug}`);
+  }
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, updated, "Top recruiter updated successfully"));
 });

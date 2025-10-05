@@ -1,6 +1,7 @@
 import CollegeProfile from "../models/collegeProfileModel.js";
 import { deleteCacheByPrefix, getCache, setCache } from "../utils/nodeCache.js";
 import redis from "../libs/redis.js";
+
 export const createCollegeService = async ({
   name,
   slug,
@@ -33,6 +34,7 @@ export const createCollegeService = async ({
   campusFacilities,
   rankings,
   AlsoKnownAs,
+  stream,
 }) => {
   const college = await CollegeProfile.create({
     name,
@@ -66,6 +68,7 @@ export const createCollegeService = async ({
     campusFacilities,
     rankings,
     AlsoKnownAs,
+    stream,
   });
 
   // Clear cache after new entry

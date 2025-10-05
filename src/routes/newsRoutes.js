@@ -5,7 +5,10 @@ import {
   getNewsArticleBySlugController,
   getNewsArticlesController,
   getNewsArticlesTrendingController,
+  updateNewsArticleController,
+  uploadcoverImage,
 } from "../controllers/newsController.js";
+import { upload } from "../middlewares/multer.js";
 
 const router = Router();
 
@@ -17,5 +20,12 @@ router.get("/:slug", getNewsArticleBySlugController);
 
 router.get("/all/slugs", getAllNewsSlugsController);
 router.get("/trending/1", getNewsArticlesTrendingController);
+
+router.post(
+  "/upload-cover-image/:slug",
+  upload.single("image"),
+  uploadcoverImage
+);
+router.put("/:slug/update", updateNewsArticleController);
 
 export default router;

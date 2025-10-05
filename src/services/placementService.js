@@ -27,20 +27,28 @@ export const createPlacementService = async (slug, data) => {
   return placement;
 };
 
-// ✅ Update placement record by slug
-export const updatePlacementService = async (slug, updateData) => {
-  const placement = await Placement.findOneAndUpdate({ slug }, updateData, {
-    new: true,
-    runValidators: true,
-  });
+// ✅ Update placement record by id
+export const updatePlacementService = async (id, updateData) => {
+  console.log("Updating placement ID:", id);
+  if (!id) throw new Error("Placement ID is required to update placement");
+
+  const placement = await Placement.findOneAndUpdate(
+    { _id: id }, // ✅ FIXED HERE
+    updateData,
+    { new: true, runValidators: true }
+  );
+
   if (!placement) throw new Error("Placement record not found");
   return placement;
 };
 
 // ✅ Delete placement record by slug
-export const deletePlacementService = async (slug) => {
-  const placement = await Placement.findOneAndDelete({ slug });
+export const deletePlacementService = async (id) => {
+  if (!id) throw new Error("Placement ID is required to delete placement");
+
+  const placement = await Placement.findByIdAndDelete(id); // ✅ FIXED
   if (!placement) throw new Error("Placement record not found");
+
   return placement;
 };
 

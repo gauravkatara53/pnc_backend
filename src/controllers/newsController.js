@@ -38,8 +38,10 @@ export const createNewsArticleController = asyncHandler(async (req, res) => {
 });
 
 import { setCache, getCache } from "../utils/nodeCache.js";
+import { flushCache } from "../utils/nodeCache.js";
 
 import redis from "../libs/redis.js";
+import { imagekit } from "../utils/imageKitClient.js";
 
 export const getNewsArticlesController = asyncHandler(async (req, res) => {
   const {
@@ -325,3 +327,83 @@ export const getNewsArticlesTrendingController = asyncHandler(
     }
   }
 );
+
+export const updateNewsArticleController = asyncHandler(async (req, res) => {
+  const { slug } = req.params;
+  const updateData = req.body;
+
+  // Find the article by slug
+  const newsArticle = await NewsArticle.findOne({ slug });
+  if (!newsArticle) {
+    return res
+      .status(404)
+      .json(new ApiResponse(404, null, "Article not found."));
+  }
+
+  // Update fields
+  Object.keys(updateData).forEach((key) => {
+    newsArticle[key] = updateData[key];
+  });
+
+  await newsArticle.save();
+
+  // Invalidate caches for this article and news list
+  const { delCache } = await import("../utils/nodeCache.js");
+  const articleCacheKey = `news:slug:${slug}`;
+  delCache && delCache(articleCacheKey);
+  await redis.del(articleCacheKey);
+
+  // Optionally, you may want to invalidate news:list:* and trending caches as well
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, newsArticle, "News article updated successfully")
+    );
+});
+
+export const uploadcoverImage = async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded!" });
+    }
+
+    // Generate a unique filename
+    const fileName = `${Date.now()}-${req.file.originalname}`;
+
+    // Upload to ImageKit
+    const uploadResponse = await imagekit.upload({
+      file: req.file.buffer, // Multer memory buffer
+      fileName,
+      folder: "/coverImage", // 👈 organized folder
+      useUniqueFileName: true,
+    });
+
+    // Update news article with new image URL using slug
+    const newsArticle = await NewsArticle.findOneAndUpdate(
+      { slug },
+      { coverImage: uploadResponse.url },
+      { new: true } // return updated document
+    );
+
+    if (!newsArticle) {
+      return res.status(404).json({ message: "Article not found" });
+    }
+    // --- Clear Redis cache ---
+    await redis.flushall();
+
+    // --- Clear node-cache ---
+    await flushCache();
+    res.status(200).json({
+      success: true,
+      message: "cover image  uploaded successfully",
+      imageUrl: uploadResponse.url,
+      newsArticle,
+    });
+  } catch (err) {
+    console.error("Error uploading cover image:", err.message);
+    res.status(500).json({ message: err.message });
+  }
+};

@@ -4,6 +4,7 @@ import {
   getAllCollegesController,
   getAllCollegeSlugsController,
   getCollegeBySlugController,
+  updateCollegeProfileController,
   uploadCollegeProfilePic,
   uploadPlacementAnalytics,
 } from "../controllers/createCollegeController.js";
@@ -13,6 +14,9 @@ const router = Router();
 // routes/collegeRoutes.js
 router.post("/create", createCollegeController);
 
+// route to update the college profile data 
+router.put("/:slug/update", updateCollegeProfileController)
+
 // GET all with filters
 router.get("/all", getAllCollegesController);
 
@@ -21,12 +25,12 @@ router.get("/:slug", getCollegeBySlugController);
 
 // Upload college profile picture by ID
 router.post(
-  "/:collegeId/upload-profile",
+  "/:slug/upload-profile",
   upload.single("image"),
   uploadCollegeProfilePic
 );
 router.post(
-  "/:collegeId/upload-placement-analytics",
+  "/:slug/upload-placement-analytics",
   upload.single("image"),
   uploadPlacementAnalytics
 );

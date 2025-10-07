@@ -9,7 +9,35 @@ import {
 import { imagekit } from "../utils/imageKitClient.js";
 import CollegeProfile from "../models/collegeProfileModel.js";
 import redis from "../libs/redis.js";
-import { flushCache } from "../utils/nodeCache.js";
+import { deleteCacheByPrefix, deleteCache } from "../utils/nodeCache.js";
+
+// Helper function to clear college-related caches
+const clearCollegeRelatedCaches = async (slug = null) => {
+  try {
+    console.log("🧹 Clearing college-related caches...");
+
+    // Clear NodeCache patterns
+    deleteCacheByPrefix("colleges:"); // Clear all college list caches
+
+    if (slug) {
+      deleteCache(`college:slug:${slug}`); // Clear specific college cache
+      console.log(`🧹 Cleared specific college cache: college:slug:${slug}`);
+    }
+
+    // Clear Redis patterns
+    const redisKeys = await redis.keys("college*");
+    if (redisKeys.length > 0) {
+      await redis.del(...redisKeys);
+      console.log(
+        `🧹 Cleared ${redisKeys.length} Redis keys with pattern college*`
+      );
+    }
+
+    console.log("✅ College-related caches cleared successfully");
+  } catch (error) {
+    console.error("❌ Error clearing college caches:", error);
+  }
+};
 
 export const createCollegeController = asyncHandler(async (req, res) => {
   const {
@@ -79,11 +107,9 @@ export const createCollegeController = asyncHandler(async (req, res) => {
     AlsoKnownAs,
     stream,
   });
-  // --- Clear Redis cache ---
-  await redis.flushall();
 
-  // --- Clear node-cache ---
-  await flushCache();
+  // Clear college-related caches since new college affects lists
+  await clearCollegeRelatedCaches(slug);
 
   res
     .status(201)
@@ -107,11 +133,8 @@ export const updateCollegeProfileController = asyncHandler(async (req, res) => {
       .json(new ApiResponse(404, null, "College not found"));
   }
 
-  // --- Clear Redis cache ---
-  await redis.flushall();
-
-  // --- Clear node-cache ---
-  await flushCache();
+  // Clear college-related caches since update affects lists and specific college
+  await clearCollegeRelatedCaches(slug);
 
   res
     .status(200)
@@ -192,11 +215,10 @@ export const uploadCollegeProfilePic = async (req, res) => {
     if (!college) {
       return res.status(404).json({ message: "College not found" });
     }
-    // --- Clear Redis cache ---
-    await redis.flushall();
 
-    // --- Clear node-cache ---
-    await flushCache();
+    // Clear college-related caches since profile image update affects display
+    await clearCollegeRelatedCaches(slug);
+
     res.status(200).json({
       success: true,
       message: "Profile picture uploaded successfully",
@@ -240,11 +262,10 @@ export const uploadPlacementAnalytics = async (req, res) => {
     if (!college) {
       return res.status(404).json({ message: "College not found" });
     }
-    // --- Clear Redis cache ---
-    await redis.flushall();
 
-    // --- Clear node-cache ---
-    await flushCache();
+    // Clear college-related caches since placement analytics update affects display
+    await clearCollegeRelatedCaches(college.slug);
+
     res.status(200).json({
       success: true,
       message: "Placement analytics uploaded successfully",
@@ -257,6 +278,25 @@ export const uploadPlacementAnalytics = async (req, res) => {
   }
 };
 
+export const deleteCollegeController = asyncHandler(async (req, res) => {
+  const { slug } = req.params;
+
+  // Find and delete the college by slug
+  const college = await CollegeProfile.findOneAndDelete({ slug });
+  if (!college) {
+    return res
+      .status(404)
+      .json(new ApiResponse(404, null, "College not found."));
+  }
+
+  // Clear all college-related caches since deletion affects lists
+  await clearCollegeRelatedCaches(slug);
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, null, "College deleted successfully"));
+});
+
 export const getAllCollegeSlugsController = asyncHandler(async (req, res) => {
   const colleges = await CollegeProfile.find({}, "slug");
   const slugs = colleges.map((college) => college.slug);
@@ -265,15 +305,11 @@ export const getAllCollegeSlugsController = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, slugs, "College slugs fetched successfully"));
 });
 
-
 export const clearAllCacheController = asyncHandler(async (req, res) => {
-  // Clear Redis cache
-  await redis.flushall();
-
-  // Clear node-cache
-  await flushCache();
+  // Clear all college-related caches
+  await clearCollegeRelatedCaches();
 
   res
     .status(200)
-    .json(new ApiResponse(200, null, "All caches cleared successfully"));
+    .json(new ApiResponse(200, null, "College caches cleared successfully"));
 });

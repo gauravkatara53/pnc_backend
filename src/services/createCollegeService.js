@@ -2,6 +2,29 @@ import CollegeProfile from "../models/collegeProfileModel.js";
 import { deleteCacheByPrefix, getCache, setCache } from "../utils/nodeCache.js";
 import redis from "../libs/redis.js";
 
+// Helper function to clear college-related caches from service
+const clearCollegeRelatedCachesFromService = async (slug = null) => {
+  try {
+    console.log("🧹 Clearing college-related caches from service...");
+
+    // Clear NodeCache patterns
+    deleteCacheByPrefix("colleges:"); // Clear all college list caches
+
+    // Clear Redis patterns
+    const redisKeys = await redis.keys("college*");
+    if (redisKeys.length > 0) {
+      await redis.del(...redisKeys);
+      console.log(
+        `🧹 Cleared ${redisKeys.length} Redis keys with pattern college*`
+      );
+    }
+
+    console.log("✅ College-related caches cleared successfully from service");
+  } catch (error) {
+    console.error("❌ Error clearing college caches from service:", error);
+  }
+};
+
 export const createCollegeService = async ({
   name,
   slug,
@@ -71,8 +94,8 @@ export const createCollegeService = async ({
     stream,
   });
 
-  // Clear cache after new entry
-  deleteCacheByPrefix("colleges:");
+  // Clear college-related caches since new college affects lists
+  await clearCollegeRelatedCachesFromService(slug);
 
   return college;
 };

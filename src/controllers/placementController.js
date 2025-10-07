@@ -14,12 +14,47 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import redis from "../libs/redis.js";
 // ✅ Create placement (slug from params)
 
-import { setCache, getCache, deleteCacheByPrefix } from "../utils/nodeCache.js";
+import {
+  setCache,
+  getCache,
+  deleteCacheByPrefix,
+  deleteCache,
+} from "../utils/nodeCache.js";
 import PlacementStats from "../models/placementStatsModel.js";
 import TopRecruiters from "../models/topRecuritermodel.js";
 import { imagekit } from "../utils/imageKitClient.js";
 
-import { flushCache } from "../utils/nodeCache.js";
+// Helper function to clear placement-related caches
+const clearPlacementRelatedCaches = async (slug = null) => {
+  try {
+    console.log("🧹 Clearing placement-related caches...");
+
+    // Clear NodeCache patterns
+    deleteCacheByPrefix("placements:"); // Clear all placement list caches
+    deleteCacheByPrefix("placementStats:"); // Clear placement stats caches
+    deleteCacheByPrefix("topRecruiters:"); // Clear top recruiters caches
+
+    if (slug) {
+      deleteCache(`placement:college:${slug}`); // Clear specific college placement cache
+      deleteCache(`placementStats:college:${slug}`); // Clear specific college stats cache
+      console.log(`🧹 Cleared specific college placement caches for: ${slug}`);
+    }
+
+    // Clear Redis patterns
+    const redisKeys = await redis.keys("placement*");
+    if (redisKeys.length > 0) {
+      await redis.del(...redisKeys);
+      console.log(
+        `🧹 Cleared ${redisKeys.length} Redis keys with pattern placement*`
+      );
+    }
+
+    console.log("✅ Placement-related caches cleared successfully");
+  } catch (error) {
+    console.error("❌ Error clearing placement caches:", error);
+  }
+};
+
 // ✅ Create new placement record
 export const createPlacementController = asyncHandler(async (req, res) => {
   const { slug } = req.params;
@@ -41,8 +76,8 @@ export const createPlacementController = asyncHandler(async (req, res) => {
     year,
   });
 
-  // Invalidate cache for this college's placements
-  deleteCacheByPrefix(`placements:${slug}`);
+  // Clear placement-related caches since new placement affects lists and stats
+  await clearPlacementRelatedCaches(slug);
 
   res
     .status(201)
@@ -66,9 +101,8 @@ export const bulkCreatePlacementController = asyncHandler(async (req, res) => {
     placementsArray.map((placement) => createPlacementService(slug, placement))
   );
 
-  // Invalidate both cache keys for this slug to cover all cached listings
-  deleteCacheByPrefix(`placements:${slug}`); // For filter-based cache keys
-  deleteCacheByPrefix(`placementsBySlug:${slug}`); // For placements by college ID cache
+  // Clear placement-related caches since bulk creation affects lists and stats
+  await clearPlacementRelatedCaches(slug);
 
   res
     .status(201)
@@ -86,8 +120,8 @@ export const updatePlacementController = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const placement = await updatePlacementService(id, req.body);
 
-  // Invalidate cache for this college's placements
-  deleteCacheByPrefix(`placements:${id}`);
+  // Clear placement-related caches since update affects lists and stats
+  await clearPlacementRelatedCaches();
 
   res
     .status(200)
@@ -99,8 +133,8 @@ export const deletePlacementController = asyncHandler(async (req, res) => {
   const { id } = req.params;
   await deletePlacementService(id);
 
-  // Invalidate cache for this college's placements
-  deleteCacheByPrefix(`placements:${id}`);
+  // Clear placement-related caches since deletion affects lists and stats
+  await clearPlacementRelatedCaches();
 
   res
     .status(200)
@@ -207,8 +241,8 @@ export const createPlacementStatsController = asyncHandler(async (req, res) => {
     graph_url,
   });
 
-  // Invalidate cache for placement stats of this college
-  deleteCacheByPrefix(`placementStats:${slug}`);
+  // Clear placement-related caches since new stats affect displays
+  await clearPlacementRelatedCaches(slug);
 
   res
     .status(201)
@@ -252,11 +286,10 @@ export const uploadPlacementStatsGraphController = asyncHandler(
       if (!college) {
         return res.status(404).json({ message: "College not found" });
       }
-      // --- Clear Redis cache ---
-      await redis.flushall();
 
-      // --- Clear node-cache ---
-      await flushCache();
+      // Clear placement-related caches since profile update affects placement display
+      await clearPlacementRelatedCaches();
+
       res.status(200).json({
         success: true,
         message: "Profile picture uploaded successfully",
@@ -311,8 +344,8 @@ export const createTopRecruiterController = asyncHandler(async (req, res) => {
     recruiters,
   });
 
-  // Invalidate cache for top recruiters of this college
-  deleteCacheByPrefix(`topRecruiters:${slug}`);
+  // Clear placement-related caches since new top recruiter data affects displays
+  await clearPlacementRelatedCaches(slug);
 
   res
     .status(201)

@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   clearAllCacheController,
   createCollegeController,
+  deleteCollegeController,
   getAllCollegesController,
   getAllCollegeSlugsController,
   getCollegeBySlugController,
@@ -15,8 +16,8 @@ const router = Router();
 // routes/collegeRoutes.js
 router.post("/create", createCollegeController);
 
-// route to update the college profile data 
-router.put("/:slug/update", updateCollegeProfileController)
+// route to update the college profile data
+router.put("/:slug/update", updateCollegeProfileController);
 
 // GET all with filters
 router.get("/all", getAllCollegesController);
@@ -37,8 +38,8 @@ router.post(
 );
 
 router.get("/all/slugs", getAllCollegeSlugsController);
+router.delete("/:slug", deleteCollegeController);
 
 router.post("/clear", clearAllCacheController);
 
 export default router;
-

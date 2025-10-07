@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  clearAllCacheController,
   createCollegeController,
   getAllCollegesController,
   getAllCollegeSlugsController,
@@ -36,4 +37,8 @@ router.post(
 );
 
 router.get("/all/slugs", getAllCollegeSlugsController);
+
+router.post("/clear", clearAllCacheController);
+
 export default router;
+

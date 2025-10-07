@@ -264,3 +264,16 @@ export const getAllCollegeSlugsController = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, slugs, "College slugs fetched successfully"));
 });
+
+
+export const clearAllCacheController = asyncHandler(async (req, res) => {
+  // Clear Redis cache
+  await redis.flushall();
+
+  // Clear node-cache
+  await flushCache();
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, null, "All caches cleared successfully"));
+});

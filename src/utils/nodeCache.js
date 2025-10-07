@@ -16,7 +16,7 @@ const deleteCache = (key) => {
   return cache.del(key);
 };
 
-export const deleteCacheByPrefix = (prefix) => {
+const deleteCacheByPrefix = (prefix) => {
   const keys = cache.keys();
   keys.forEach((key) => {
     if (key.startsWith(prefix)) {
@@ -43,4 +43,11 @@ const getOrSetCache = async (key, fetchFn, ttl) => {
   return fresh;
 };
 
-export { setCache, getCache, deleteCache, flushCache, getOrSetCache };
+export {
+  setCache,
+  getCache,
+  deleteCache,
+  deleteCacheByPrefix,
+  flushCache,
+  getOrSetCache,
+};

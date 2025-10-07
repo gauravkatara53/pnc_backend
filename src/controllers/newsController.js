@@ -3,6 +3,43 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { createNewsArticleService } from "../services/newsArticleService.js";
 import NewsArticle from "../models/newsModel.js";
+import {
+  setCache,
+  getCache,
+  deleteCacheByPrefix,
+  deleteCache,
+} from "../utils/nodeCache.js";
+import redis from "../libs/redis.js";
+import { imagekit } from "../utils/imageKitClient.js";
+
+// Helper function to clear news-related caches
+const clearNewsRelatedCaches = async (slug = null) => {
+  try {
+    console.log("🧹 Clearing news-related caches...");
+
+    // Clear NodeCache patterns
+    deleteCacheByPrefix("news:list:"); // Clear all news list caches
+    deleteCacheByPrefix("news:trending:"); // Clear trending caches
+
+    if (slug) {
+      deleteCache(`news:slug:${slug}`); // Clear specific article cache
+      console.log(`🧹 Cleared specific article cache: news:slug:${slug}`);
+    }
+
+    // Clear Redis patterns
+    const redisKeys = await redis.keys("news:*");
+    if (redisKeys.length > 0) {
+      await redis.del(...redisKeys);
+      console.log(
+        `🧹 Cleared ${redisKeys.length} Redis keys with pattern news:*`
+      );
+    }
+
+    console.log("✅ News-related caches cleared successfully");
+  } catch (error) {
+    console.error("❌ Error clearing news caches:", error);
+  }
+};
 export const createNewsArticleController = asyncHandler(async (req, res) => {
   const {
     title,
@@ -30,18 +67,15 @@ export const createNewsArticleController = asyncHandler(async (req, res) => {
     sections,
   });
 
+  // Clear all news-related caches since new article affects lists and trending
+  await clearNewsRelatedCaches(slug);
+
   res
     .status(201)
     .json(
       new ApiResponse(201, newsArticle, "News article created successfully")
     );
 });
-
-import { setCache, getCache } from "../utils/nodeCache.js";
-import { flushCache } from "../utils/nodeCache.js";
-
-import redis from "../libs/redis.js";
-import { imagekit } from "../utils/imageKitClient.js";
 
 export const getNewsArticlesController = asyncHandler(async (req, res) => {
   const {
@@ -347,19 +381,33 @@ export const updateNewsArticleController = asyncHandler(async (req, res) => {
 
   await newsArticle.save();
 
-  // Invalidate caches for this article and news list
-  const { delCache } = await import("../utils/nodeCache.js");
-  const articleCacheKey = `news:slug:${slug}`;
-  delCache && delCache(articleCacheKey);
-  await redis.del(articleCacheKey);
-
-  // Optionally, you may want to invalidate news:list:* and trending caches as well
+  // Clear all news-related caches since update may affect lists, trending, and specific article
+  await clearNewsRelatedCaches(slug);
 
   res
     .status(200)
     .json(
       new ApiResponse(200, newsArticle, "News article updated successfully")
     );
+});
+
+export const deleteNewsArticleController = asyncHandler(async (req, res) => {
+  const { slug } = req.params;
+
+  // Find and delete the article by slug
+  const newsArticle = await NewsArticle.findOneAndDelete({ slug });
+  if (!newsArticle) {
+    return res
+      .status(404)
+      .json(new ApiResponse(404, null, "Article not found."));
+  }
+
+  // Clear all news-related caches since deletion affects lists and trending
+  await clearNewsRelatedCaches(slug);
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, null, "News article deleted successfully"));
 });
 
 export const uploadcoverImage = async (req, res) => {
@@ -391,11 +439,10 @@ export const uploadcoverImage = async (req, res) => {
     if (!newsArticle) {
       return res.status(404).json({ message: "Article not found" });
     }
-    // --- Clear Redis cache ---
-    await redis.flushall();
 
-    // --- Clear node-cache ---
-    await flushCache();
+    // Clear news-related caches since cover image update affects article display
+    await clearNewsRelatedCaches(slug);
+
     res.status(200).json({
       success: true,
       message: "cover image  uploaded successfully",

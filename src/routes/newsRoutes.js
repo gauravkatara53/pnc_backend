@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   createNewsArticleController,
+  deleteNewsArticleController,
   getAllNewsSlugsController,
   getNewsArticleBySlugController,
   getNewsArticlesController,
@@ -27,5 +28,6 @@ router.post(
   uploadcoverImage
 );
 router.put("/:slug/update", updateNewsArticleController);
+router.delete("/:slug", deleteNewsArticleController);
 
 export default router;

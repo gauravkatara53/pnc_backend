@@ -11,6 +11,7 @@ import {
 } from "../utils/nodeCache.js";
 import redis from "../libs/redis.js";
 import { imagekit } from "../utils/imageKitClient.js";
+import { clearDashboardStatsCaches } from "./DashboardStats.js";
 
 // Helper function to clear news-related caches
 const clearNewsRelatedCaches = async (slug = null) => {
@@ -34,6 +35,9 @@ const clearNewsRelatedCaches = async (slug = null) => {
         `🧹 Cleared ${redisKeys.length} Redis keys with pattern news:*`
       );
     }
+
+    // Also clear dashboard caches since news count affects dashboard stats
+    await clearDashboardStatsCaches();
 
     console.log("✅ News-related caches cleared successfully");
   } catch (error) {

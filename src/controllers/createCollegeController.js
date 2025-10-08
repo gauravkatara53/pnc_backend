@@ -10,6 +10,7 @@ import { imagekit } from "../utils/imageKitClient.js";
 import CollegeProfile from "../models/collegeProfileModel.js";
 import redis from "../libs/redis.js";
 import { deleteCacheByPrefix, deleteCache } from "../utils/nodeCache.js";
+import { clearDashboardStatsCaches } from "./DashboardStats.js";
 
 // Helper function to clear college-related caches
 const clearCollegeRelatedCaches = async (slug = null) => {
@@ -32,6 +33,9 @@ const clearCollegeRelatedCaches = async (slug = null) => {
         `🧹 Cleared ${redisKeys.length} Redis keys with pattern college*`
       );
     }
+
+    // Also clear dashboard caches since college count/types affect dashboard stats
+    await clearDashboardStatsCaches();
 
     console.log("✅ College-related caches cleared successfully");
   } catch (error) {

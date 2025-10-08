@@ -6,6 +6,7 @@ import {
   getNewsArticleBySlugController,
   getNewsArticlesController,
   getNewsArticlesTrendingController,
+  getRelatedNewsController,
   updateNewsArticleController,
   uploadcoverImage,
 } from "../controllers/newsController.js";
@@ -17,9 +18,10 @@ router.post("/create", createNewsArticleController);
 
 router.get("/all", getNewsArticlesController);
 
-router.get("/:slug", getNewsArticleBySlugController);
-
 router.get("/all/slugs", getAllNewsSlugsController);
+router.get("/related/:slug", getRelatedNewsController);
+
+router.get("/:slug", getNewsArticleBySlugController);
 router.get("/trending/1", getNewsArticlesTrendingController);
 
 router.post(

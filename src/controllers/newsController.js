@@ -21,6 +21,7 @@ const clearNewsRelatedCaches = async (slug = null) => {
     // Clear NodeCache patterns
     deleteCacheByPrefix("news:list:"); // Clear all news list caches
     deleteCacheByPrefix("news:trending:"); // Clear trending caches
+    deleteCacheByPrefix("news:related:"); // Clear related news caches
 
     if (slug) {
       deleteCache(`news:slug:${slug}`); // Clear specific article cache
@@ -458,3 +459,194 @@ export const uploadcoverImage = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const getRelatedNewsController = asyncHandler(async (req, res) => {
+  const { slug } = req.params;
+  const cacheKey = `news:related:${slug}`;
+
+  // 1. Try Node-cache (L1)
+  let cachedRelated = getCache(cacheKey);
+  if (cachedRelated) {
+    console.log("⚡ L1 Node-cache hit:", cacheKey);
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, cachedRelated, "Related news fetched (cached)")
+      );
+  }
+
+  // 2. Try Redis (L2)
+  const cachedRedis = await redis.get(cacheKey);
+  if (cachedRedis) {
+    console.log("⚡ L2 Redis hit:", cacheKey);
+
+    const parsed = JSON.parse(cachedRedis);
+    // Save into Node-cache for next time
+    setCache(cacheKey, parsed, 300); // 5 minutes TTL
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, parsed, "Related news fetched (cached)"));
+  }
+
+  // 3. Cache miss → fetch from DB
+  console.log("❌ Cache miss (DB fetch):", cacheKey);
+
+  // First, find the original article to get its tags and category
+  const originalArticle = await NewsArticle.findOne({ slug })
+    .select("tags category title")
+    .lean();
+
+  if (!originalArticle) {
+    return res
+      .status(404)
+      .json(new ApiResponse(404, null, "Original article not found"));
+  }
+
+  // Build query for related articles
+  const relatedQuery = {
+    slug: { $ne: slug }, // Exclude the original article
+    $or: [],
+  };
+
+  // Add category match if available
+  if (originalArticle.category) {
+    relatedQuery.$or.push({ category: originalArticle.category });
+  }
+
+  // Add tag matches if available
+  if (originalArticle.tags && originalArticle.tags.length > 0) {
+    relatedQuery.$or.push({
+      tags: { $in: originalArticle.tags },
+    });
+  }
+
+  // If no category or tags, find other articles (fallback)
+  if (relatedQuery.$or.length === 0) {
+    delete relatedQuery.$or;
+  }
+
+  // Find related articles with priority scoring
+  const relatedArticles = await NewsArticle.aggregate([
+    { $match: relatedQuery },
+    {
+      $addFields: {
+        // Calculate relevance score
+        categoryMatch: {
+          $cond: [
+            { $eq: ["$category", originalArticle.category] },
+            10, // Higher score for category match
+            0,
+          ],
+        },
+        tagMatches: {
+          $size: {
+            $ifNull: [
+              {
+                $setIntersection: [
+                  { $ifNull: ["$tags", []] },
+                  originalArticle.tags || [],
+                ],
+              },
+              [],
+            ],
+          },
+        },
+        relevanceScore: {
+          $add: [
+            {
+              $cond: [{ $eq: ["$category", originalArticle.category] }, 10, 0],
+            },
+            {
+              $multiply: [
+                {
+                  $size: {
+                    $ifNull: [
+                      {
+                        $setIntersection: [
+                          { $ifNull: ["$tags", []] },
+                          originalArticle.tags || [],
+                        ],
+                      },
+                      [],
+                    ],
+                  },
+                },
+                2, // Each tag match gives 2 points
+              ],
+            },
+          ],
+        },
+      },
+    },
+    {
+      $sort: {
+        relevanceScore: -1,
+        publishDate: -1, // Recent articles as secondary sort
+      },
+    },
+    {
+      $limit: 4,
+    },
+    {
+      $project: {
+        _id: 1,
+        title: 1,
+        slug: 1,
+        coverImage: 1,
+        publishDate: 1,
+        relevanceScore: 1,
+      },
+    },
+  ]);
+
+  // If we don't have enough related articles, fill with recent articles
+  if (relatedArticles.length < 4) {
+    const additionalCount = 4 - relatedArticles.length;
+    const excludeSlugs = [
+      slug,
+      ...relatedArticles.map((article) => article.slug),
+    ];
+
+    const additionalArticles = await NewsArticle.find({
+      slug: { $nin: excludeSlugs },
+    })
+      .select("_id title slug coverImage publishDate")
+      .sort({ publishDate: -1 })
+      .limit(additionalCount)
+      .lean();
+
+    // Add additional articles with score 0
+    additionalArticles.forEach((article) => {
+      relatedArticles.push({
+        ...article,
+        relevanceScore: 0,
+      });
+    });
+  }
+
+  // Format the response - only essential data (no tags)
+  const formattedRelated = relatedArticles.map((article) => ({
+    id: article._id,
+    title: article.title,
+    slug: article.slug,
+    coverImage: article.coverImage || null,
+  }));
+
+  const responseData = {
+    relatedArticles: formattedRelated,
+    totalFound: formattedRelated.length,
+  };
+
+  // Save to both caches
+  setCache(cacheKey, responseData, 300); // Node-cache (5 min TTL)
+  await redis.set(cacheKey, JSON.stringify(responseData), "EX", 600); // Redis (10 min TTL)
+
+  console.log("✅ Related news cached in Node-cache + Redis:", cacheKey);
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, responseData, "Related news fetched successfully")
+    );
+});

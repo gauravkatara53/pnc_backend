@@ -171,9 +171,27 @@ const collegeProfileSchema = new mongoose.Schema(
       ],
     },
     examType: {
-      type: String,
-      enum: ["JEE-Main", "JEE-Advanced", "NEET-UG", "GATE", "CAT"], // Add other exams as needed
-      required: true,
+      type: [String],
+      enum: [
+        "JEE-Main",
+        "JEE-Advanced",
+        "NEET-UG",
+        "GATE",
+        "CAT",
+        "CLAT",
+        "NMAT",
+        "XAT",
+        "MAT",
+        "CMAT",
+        "SNAP",
+      ], // Multiple exams can be accepted
+      default: [],
+      validate: {
+        validator: function (arr) {
+          return arr.length > 0; // At least one exam type is required
+        },
+        message: "At least one exam type is required",
+      },
     },
     isPlacementRateAvailable: { type: Boolean, default: true },
     isMedianPackageAvailable: { type: Boolean, default: true },

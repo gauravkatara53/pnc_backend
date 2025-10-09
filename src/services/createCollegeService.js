@@ -191,6 +191,7 @@ export const getAllCollegesService = async (filters, page, limit) => {
     query.instituteType = { $in: filters.instituteType.split(",") };
   if (filters.tag) query.tag = { $in: filters.tag.split(",") };
   if (filters.stream) query.stream = { $in: filters.stream.split(",") };
+  if (filters.examType) query.examType = { $in: filters.examType.split(",") };
 
   // Range filters
   if (filters.minFees) query.fees = { $gte: Number(filters.minFees) };

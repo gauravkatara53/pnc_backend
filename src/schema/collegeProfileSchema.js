@@ -94,6 +94,23 @@ export const collegeProfileSchema = z.object({
     .min(1800)
     .max(new Date().getFullYear())
     .optional(),
+  examType: z
+    .array(
+      z.enum([
+        "JEE Main",
+        "JEE Advanced",
+        "NEET",
+        "GATE",
+        "CAT",
+        "CLAT",
+        "NMAT",
+        "XAT",
+        "MAT",
+        "CMAT",
+        "SNAP",
+      ])
+    )
+    .nonempty("At least one exam type is required"),
   location: z.string().optional(),
   address: z.string().optional(),
   state: z.string().optional(),

@@ -10,6 +10,11 @@ import {
   uploadCollegeProfilePic,
   uploadPlacementAnalytics,
 } from "../controllers/createCollegeController.js";
+import {
+  addPlacementYearController,
+  removePlacementYearController,
+  getPlacementYearsController,
+} from "../controllers/placementYearController.js";
 import { upload } from "../middlewares/multer.js";
 
 const router = Router();
@@ -39,6 +44,11 @@ router.post(
 
 router.get("/all/slugs", getAllCollegeSlugsController);
 router.delete("/:slug", deleteCollegeController);
+
+// 📅 Placement Years Management
+router.get("/:slug/placement-years", getPlacementYearsController);
+router.post("/:slug/placement-years", addPlacementYearController);
+router.delete("/:slug/placement-years/:year", removePlacementYearController);
 
 router.post("/clear", clearAllCacheController);
 

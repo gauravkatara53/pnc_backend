@@ -16,13 +16,29 @@ const deleteCache = (key) => {
   return cache.del(key);
 };
 
-const deleteCacheByPrefix = (prefix) => {
+const deleteCacheByPrefix = (pattern) => {
   const keys = cache.keys();
+  let deletedCount = 0;
+
   keys.forEach((key) => {
-    if (key.startsWith(prefix)) {
+    // Convert pattern with wildcards to regex
+    const regexPattern = pattern.replace(/\*/g, ".*");
+    const regex = new RegExp(`^${regexPattern}$`);
+
+    if (regex.test(key)) {
       cache.del(key);
+      deletedCount++;
+      console.log(`🗑️ NodeCache cleared: ${key}`);
     }
   });
+
+  if (deletedCount > 0) {
+    console.log(
+      `🧹 NodeCache: Cleared ${deletedCount} keys matching pattern: ${pattern}`
+    );
+  }
+
+  return deletedCount;
 };
 
 const flushCache = () => {

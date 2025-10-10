@@ -23,6 +23,7 @@ import {
 import PlacementStats from "../models/placementStatsModel.js";
 import TopRecruiters from "../models/topRecuritermodel.js";
 import { imagekit } from "../utils/imageKitClient.js";
+import { autoUpdatePlacementYear } from "../utils/placementYearUpdater.js";
 
 // Helper function to clear placement-related caches
 const clearPlacementRelatedCaches = async (slug = null) => {
@@ -76,6 +77,9 @@ export const createPlacementController = asyncHandler(async (req, res) => {
     year,
   });
 
+  // Auto-add year to college's availablePlacementReports
+  await autoUpdatePlacementYear(slug, { year });
+
   // Clear placement-related caches since new placement affects lists and stats
   await clearPlacementRelatedCaches(slug);
 
@@ -100,6 +104,13 @@ export const bulkCreatePlacementController = asyncHandler(async (req, res) => {
   const createdPlacements = await Promise.all(
     placementsArray.map((placement) => createPlacementService(slug, placement))
   );
+
+  // Auto-add years from all placements to college's availablePlacementReports
+  for (const placement of placementsArray) {
+    if (placement.year) {
+      await autoUpdatePlacementYear(slug, { year: placement.year });
+    }
+  }
 
   // Clear placement-related caches since bulk creation affects lists and stats
   await clearPlacementRelatedCaches(slug);
@@ -241,6 +252,9 @@ export const createPlacementStatsController = asyncHandler(async (req, res) => {
     graph_url,
   });
 
+  // Auto-add year to college's availablePlacementReports
+  await autoUpdatePlacementYear(slug, { year });
+
   // Clear placement-related caches since new stats affect displays
   await clearPlacementRelatedCaches(slug);
 
@@ -343,6 +357,9 @@ export const createTopRecruiterController = asyncHandler(async (req, res) => {
     bannerImage,
     recruiters,
   });
+
+  // Auto-add year to college's availablePlacementReports
+  await autoUpdatePlacementYear(slug, { year });
 
   // Clear placement-related caches since new top recruiter data affects displays
   await clearPlacementRelatedCaches(slug);

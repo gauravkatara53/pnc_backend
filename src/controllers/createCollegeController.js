@@ -317,3 +317,118 @@ export const clearAllCacheController = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, null, "College caches cleared successfully"));
 });
+
+// 📅 Add placement year to college
+export const addPlacementYearController = asyncHandler(async (req, res) => {
+  const { slug } = req.params;
+  const { year } = req.body;
+
+  if (
+    !year ||
+    !Number.isInteger(year) ||
+    year < 1900 ||
+    year > new Date().getFullYear() + 10
+  ) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "Invalid year provided"));
+  }
+
+  const college = await CollegeProfile.findOne({ slug });
+  if (!college) {
+    return res
+      .status(404)
+      .json(new ApiResponse(404, null, "College not found"));
+  }
+
+  // Add year if not already present
+  if (!college.availablePlacementReports.includes(year)) {
+    college.availablePlacementReports.push(year);
+    college.availablePlacementReports.sort((a, b) => b - a); // Sort newest first
+    await college.save();
+
+    // 🧹 Clear related caches
+    await clearCollegeRelatedCaches(slug);
+    console.log(`✅ Added year ${year} to ${college.name}`);
+  }
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        slug: college.slug,
+        name: college.name,
+        availablePlacementReports: college.availablePlacementReports,
+      },
+      `Year ${year} added to placement reports`
+    )
+  );
+});
+
+// 📅 Remove placement year from college
+export const removePlacementYearController = asyncHandler(async (req, res) => {
+  const { slug } = req.params;
+  const { year } = req.body;
+
+  if (!year || !Number.isInteger(year)) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "Invalid year provided"));
+  }
+
+  const college = await CollegeProfile.findOne({ slug });
+  if (!college) {
+    return res
+      .status(404)
+      .json(new ApiResponse(404, null, "College not found"));
+  }
+
+  // Remove year if present
+  const yearIndex = college.availablePlacementReports.indexOf(year);
+  if (yearIndex > -1) {
+    college.availablePlacementReports.splice(yearIndex, 1);
+    await college.save();
+
+    // 🧹 Clear related caches
+    await clearCollegeRelatedCaches(slug);
+    console.log(`✅ Removed year ${year} from ${college.name}`);
+  }
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        slug: college.slug,
+        name: college.name,
+        availablePlacementReports: college.availablePlacementReports,
+      },
+      `Year ${year} removed from placement reports`
+    )
+  );
+});
+
+// 📅 Get available placement years for college
+export const getPlacementYearsController = asyncHandler(async (req, res) => {
+  const { slug } = req.params;
+
+  const college = await CollegeProfile.findOne({ slug }).select(
+    "name slug availablePlacementReports"
+  );
+  if (!college) {
+    return res
+      .status(404)
+      .json(new ApiResponse(404, null, "College not found"));
+  }
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        slug: college.slug,
+        name: college.name,
+        availablePlacementReports: college.availablePlacementReports || [],
+      },
+      "Placement years retrieved successfully"
+    )
+  );
+});

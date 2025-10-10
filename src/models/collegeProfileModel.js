@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { en } from "zod/locales";
 const yearRankSchema = new mongoose.Schema({
   year: { type: Number, required: true },
   rank: { type: String, required: true }, // e.g., "951-1000"
@@ -200,6 +199,7 @@ const collegeProfileSchema = new mongoose.Schema(
     contactEmail: String,
     contactPhone: String,
     website: String,
+    availablePlacementReports: { type: [Number] }, // year comes here
 
     AlsoKnownAs: { type: String },
   },

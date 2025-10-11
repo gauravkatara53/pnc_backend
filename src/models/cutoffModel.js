@@ -35,7 +35,6 @@ const cutoffSchema = new mongoose.Schema(
 
     quota: {
       type: String,
-      enum: ["HS", "OS", "AI"],
       required: true,
     },
 

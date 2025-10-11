@@ -46,6 +46,19 @@ export const createPlacementController = asyncHandler(async (req, res) => {
     year,
   } = req.body;
 
+  // Validate required fields
+  if (!slug) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "College slug is required"));
+  }
+
+  if (!year) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "Year is required in placement data"));
+  }
+
   const placement = await createPlacementService(slug, {
     branch,
     placementPercentage,
@@ -55,8 +68,8 @@ export const createPlacementController = asyncHandler(async (req, res) => {
     year,
   });
 
-  // Auto-add year to college's availablePlacementReports
-  await autoUpdatePlacementYear(slug, { year });
+  // Note: autoUpdatePlacementYear is now called inside createPlacementService
+  // and will throw an error if it fails, which will be caught by asyncHandler
 
   // Clear placement-related caches since new placement affects lists and stats
   await clearPlacementRelatedCaches(slug);
@@ -71,6 +84,12 @@ export const bulkCreatePlacementController = asyncHandler(async (req, res) => {
   const { slug } = req.params;
   const placementsArray = req.body; // Expecting an array of placement objects
 
+  if (!slug) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "College slug is required"));
+  }
+
   if (!Array.isArray(placementsArray) || placementsArray.length === 0) {
     return res
       .status(400)
@@ -79,16 +98,28 @@ export const bulkCreatePlacementController = asyncHandler(async (req, res) => {
       );
   }
 
+  // Validate that all placements have year field
+  for (let i = 0; i < placementsArray.length; i++) {
+    const placement = placementsArray[i];
+    if (!placement.year) {
+      return res
+        .status(400)
+        .json(
+          new ApiResponse(
+            400,
+            null,
+            `Year is required for placement at index ${i}`
+          )
+        );
+    }
+  }
+
   const createdPlacements = await Promise.all(
     placementsArray.map((placement) => createPlacementService(slug, placement))
   );
 
-  // Auto-add years from all placements to college's availablePlacementReports
-  for (const placement of placementsArray) {
-    if (placement.year) {
-      await autoUpdatePlacementYear(slug, { year: placement.year });
-    }
-  }
+  // Note: autoUpdatePlacementYear is now called inside createPlacementService for each placement
+  // and will throw an error if it fails, which will be caught by asyncHandler
 
   // Clear placement-related caches since bulk creation affects lists and stats
   await clearPlacementRelatedCaches(slug);
@@ -221,6 +252,21 @@ export const createPlacementStatsController = asyncHandler(async (req, res) => {
     graph_url,
   } = req.body;
 
+  // Validate required fields
+  if (!slug) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "College slug is required"));
+  }
+
+  if (!year) {
+    return res
+      .status(400)
+      .json(
+        new ApiResponse(400, null, "Year is required in placement stats data")
+      );
+  }
+
   const placementStats = await createPlacementStatsService(slug, {
     year,
     totalOffers,
@@ -230,8 +276,8 @@ export const createPlacementStatsController = asyncHandler(async (req, res) => {
     graph_url,
   });
 
-  // Auto-add year to college's availablePlacementReports
-  await autoUpdatePlacementYear(slug, { year });
+  // Note: autoUpdatePlacementYear is now called inside createPlacementStatsService
+  // and will throw an error if it fails, which will be caught by asyncHandler
 
   // Clear placement-related caches since new stats affect displays
   await clearPlacementRelatedCaches(slug);
@@ -326,6 +372,21 @@ export const createTopRecruiterController = asyncHandler(async (req, res) => {
     recruiters,
   } = req.body;
 
+  // Validate required fields
+  if (!slug) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "College slug is required"));
+  }
+
+  if (!year) {
+    return res
+      .status(400)
+      .json(
+        new ApiResponse(400, null, "Year is required in top recruiter data")
+      );
+  }
+
   const topRecruiter = await createTopRecruiterService(slug, {
     year,
     totalRecruiters,
@@ -336,8 +397,8 @@ export const createTopRecruiterController = asyncHandler(async (req, res) => {
     recruiters,
   });
 
-  // Auto-add year to college's availablePlacementReports
-  await autoUpdatePlacementYear(slug, { year });
+  // Note: autoUpdatePlacementYear is now called inside createTopRecruiterService
+  // and will throw an error if it fails, which will be caught by asyncHandler
 
   // Clear placement-related caches since new top recruiter data affects displays
   await clearPlacementRelatedCaches(slug);

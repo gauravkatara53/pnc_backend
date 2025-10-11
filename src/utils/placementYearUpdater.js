@@ -15,25 +15,45 @@ import redis from "../libs/redis.js";
 // 📅 Auto-update availablePlacementReports when placement data is added
 export const addPlacementYearToCollege = async (collegeSlug, year) => {
   try {
-    console.log(`� Adding year ${year} to college: ${collegeSlug}`);
+    console.log(`📅 Adding year ${year} to college: ${collegeSlug}`);
 
     const college = await CollegeProfile.findOne({ slug: collegeSlug });
     if (!college) {
-      console.warn(`⚠️ College not found: ${collegeSlug}`);
-      return false;
+      throw new Error(`College not found with slug: ${collegeSlug}`);
+    }
+
+    // Validate year
+    if (!year || isNaN(year) || year < 2000 || year > 2050) {
+      throw new Error(
+        `Invalid year provided: ${year}. Year must be between 2000 and 2050`
+      );
     }
 
     // Check if year already exists
-    if (college.availablePlacementReports.includes(year)) {
+    if (
+      college.availablePlacementReports &&
+      college.availablePlacementReports.includes(year)
+    ) {
       console.log(`✅ Year ${year} already exists for ${collegeSlug}`);
       return true;
+    }
+
+    // Initialize array if it doesn't exist
+    if (!college.availablePlacementReports) {
+      college.availablePlacementReports = [];
     }
 
     // Add year and sort in descending order (newest first)
     college.availablePlacementReports.push(year);
     college.availablePlacementReports.sort((a, b) => b - a);
 
-    await college.save();
+    const savedCollege = await college.save();
+    if (!savedCollege) {
+      throw new Error(
+        `Failed to save placement year ${year} to college ${collegeSlug}`
+      );
+    }
+
     console.log(
       `✅ Added year ${year} to ${collegeSlug}. Available years: ${college.availablePlacementReports}`
     );
@@ -47,7 +67,7 @@ export const addPlacementYearToCollege = async (collegeSlug, year) => {
       `❌ Error adding year to college ${collegeSlug}:`,
       error.message
     );
-    return false;
+    throw error; // Re-throw the error instead of returning false
   }
 };
 
@@ -218,6 +238,15 @@ export const getAvailablePlacementYears = async (collegeSlug) => {
  */
 export const autoUpdatePlacementYear = async (collegeSlug, placementData) => {
   try {
+    // Validate inputs
+    if (!collegeSlug || typeof collegeSlug !== "string") {
+      throw new Error("College slug is required and must be a string");
+    }
+
+    if (!placementData || typeof placementData !== "object") {
+      throw new Error("Placement data is required and must be an object");
+    }
+
     // Extract year from placement data
     let year = null;
 
@@ -230,23 +259,32 @@ export const autoUpdatePlacementYear = async (collegeSlug, placementData) => {
         year = parseInt(yearMatch[yearMatch.length - 1]); // Take the last year
       }
     } else {
-      // Default to current year if no year specified
-      year = new Date().getFullYear();
+      throw new Error(
+        'Year is required in placement data. Provide either "year" or "academicYear" field'
+      );
     }
 
-    if (!year || year < 2000 || year > 2030) {
-      console.error(`❌ Invalid year extracted: ${year}`);
-      return false;
+    if (!year || isNaN(year) || year < 2000 || year > 2050) {
+      throw new Error(
+        `Invalid year extracted: ${year}. Year must be between 2000 and 2050`
+      );
     }
 
     console.log(
       `🎯 Auto-updating placement year ${year} for college: ${collegeSlug}`
     );
 
-    return await addPlacementYearToCollege(collegeSlug, year);
+    const success = await addPlacementYearToCollege(collegeSlug, year);
+    if (!success) {
+      throw new Error(
+        `Failed to add placement year ${year} to college ${collegeSlug}`
+      );
+    }
+
+    return success;
   } catch (error) {
-    console.error(`❌ Error in auto-update placement year:`, error);
-    return false;
+    console.error(`❌ Error in auto-update placement year:`, error.message);
+    throw error; // Re-throw the error instead of returning false
   }
 };
 

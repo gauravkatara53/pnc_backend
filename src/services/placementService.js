@@ -13,12 +13,50 @@ import redis from "../libs/redis.js";
 // ✅ Create new placement record
 export const createPlacementService = async (slug, data) => {
   if (!slug) throw new Error("College slug is required to create placement");
+
+  // Validate required placement data
+  if (!data || typeof data !== "object") {
+    throw new Error("Placement data is required and must be an object");
+  }
+
+  if (!data.year) {
+    throw new Error("Year is required in placement data");
+  }
+
+  // Validate year
+  const year = parseInt(data.year);
+  if (isNaN(year) || year < 2000 || year > 2050) {
+    throw new Error(
+      `Invalid year provided: ${data.year}. Year must be between 2000 and 2050`
+    );
+  }
+
   const collegeExists = await CollegeProfile.findOne({ slug });
   if (!collegeExists) throw new Error("College not found for provided slug");
+
+  // Create the placement record
   const placement = await Placement.create({
     slug,
     ...data,
   });
+
+  if (!placement) {
+    throw new Error("Failed to create placement record");
+  }
+
+  // Auto-update the college's availablePlacementReports - this will throw error if it fails
+  const { autoUpdatePlacementYear } = await import(
+    "../utils/placementYearUpdater.js"
+  );
+  try {
+    await autoUpdatePlacementYear(slug, { year: year });
+  } catch (yearUpdateError) {
+    // If year update fails, we should delete the created placement record and throw error
+    await Placement.findByIdAndDelete(placement._id);
+    throw new Error(
+      `Placement created but failed to update college placement years: ${yearUpdateError.message}`
+    );
+  }
 
   // Clear placement caches for this college
   const { clearPlacementCaches } = await import("../utils/cacheManager.js");
@@ -108,12 +146,50 @@ export const getPlacementsServiceByCollegeId = async (filter) => {
 export const createPlacementStatsService = async (slug, data) => {
   if (!slug)
     throw new Error("College slug is required to create placement stats");
+
+  // Validate required placement stats data
+  if (!data || typeof data !== "object") {
+    throw new Error("Placement stats data is required and must be an object");
+  }
+
+  if (!data.year) {
+    throw new Error("Year is required in placement stats data");
+  }
+
+  // Validate year
+  const year = parseInt(data.year);
+  if (isNaN(year) || year < 2000 || year > 2050) {
+    throw new Error(
+      `Invalid year provided: ${data.year}. Year must be between 2000 and 2050`
+    );
+  }
+
   const collegeExists = await CollegeProfile.findOne({ slug });
   if (!collegeExists) throw new Error("College not found for provided slug");
+
   const placementStats = await PlacementStats.create({
     slug,
     ...data,
   });
+
+  if (!placementStats) {
+    throw new Error("Failed to create placement stats record");
+  }
+
+  // Auto-update the college's availablePlacementReports - this will throw error if it fails
+  const { autoUpdatePlacementYear } = await import(
+    "../utils/placementYearUpdater.js"
+  );
+  try {
+    await autoUpdatePlacementYear(slug, { year: year });
+  } catch (yearUpdateError) {
+    // If year update fails, we should delete the created placement stats record and throw error
+    await PlacementStats.findByIdAndDelete(placementStats._id);
+    throw new Error(
+      `Placement stats created but failed to update college placement years: ${yearUpdateError.message}`
+    );
+  }
+
   return placementStats;
 };
 
@@ -159,12 +235,50 @@ export const getPlacementStatsByCollegeService = async (slug, year) => {
 export const createTopRecruiterService = async (slug, data) => {
   if (!slug)
     throw new Error("College slug is required to create top recruiters");
+
+  // Validate required top recruiter data
+  if (!data || typeof data !== "object") {
+    throw new Error("Top recruiter data is required and must be an object");
+  }
+
+  if (!data.year) {
+    throw new Error("Year is required in top recruiter data");
+  }
+
+  // Validate year
+  const year = parseInt(data.year);
+  if (isNaN(year) || year < 2000 || year > 2050) {
+    throw new Error(
+      `Invalid year provided: ${data.year}. Year must be between 2000 and 2050`
+    );
+  }
+
   const collegeExists = await CollegeProfile.findOne({ slug });
   if (!collegeExists) throw new Error("College not found for provided slug");
+
   const topRecruiter = await TopRecruiters.create({
     slug,
     ...data,
   });
+
+  if (!topRecruiter) {
+    throw new Error("Failed to create top recruiter record");
+  }
+
+  // Auto-update the college's availablePlacementReports - this will throw error if it fails
+  const { autoUpdatePlacementYear } = await import(
+    "../utils/placementYearUpdater.js"
+  );
+  try {
+    await autoUpdatePlacementYear(slug, { year: year });
+  } catch (yearUpdateError) {
+    // If year update fails, we should delete the created top recruiter record and throw error
+    await TopRecruiters.findByIdAndDelete(topRecruiter._id);
+    throw new Error(
+      `Top recruiter created but failed to update college placement years: ${yearUpdateError.message}`
+    );
+  }
+
   return topRecruiter;
 };
 

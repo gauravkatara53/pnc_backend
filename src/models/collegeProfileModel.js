@@ -181,7 +181,7 @@ const collegeProfileSchema = new mongoose.Schema(
         message: "At least one exam type is required",
       },
     },
-    
+
     contactEmail: String,
     contactPhone: String,
     website: String,

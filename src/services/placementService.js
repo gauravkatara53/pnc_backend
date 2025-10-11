@@ -20,9 +20,9 @@ export const createPlacementService = async (slug, data) => {
     ...data,
   });
 
-  // Optionally invalidate cache here also if centralizing cache eviction
-  // deleteCacheByPrefix(`placements:${slug}`);
-  // deleteCacheByPrefix(`placementsBySlug:${slug}`);
+  // Clear placement caches for this college
+  const { clearPlacementCaches } = await import("../utils/cacheManager.js");
+  await clearPlacementCaches(slug);
 
   return placement;
 };

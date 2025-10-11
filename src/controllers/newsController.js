@@ -12,34 +12,13 @@ import {
 import redis from "../libs/redis.js";
 import { imagekit } from "../utils/imageKitClient.js";
 import { clearDashboardStatsCaches } from "./DashboardStats.js";
+import { clearRelatedCaches, clearNewsCaches } from "../utils/cacheManager.js";
 
-// Helper function to clear news-related caches
+// Helper function to clear news-related caches (updated to use centralized cache manager)
 const clearNewsRelatedCaches = async (slug = null) => {
   try {
-    console.log("🧹 Clearing news-related caches...");
-
-    // Clear NodeCache patterns
-    deleteCacheByPrefix("news:list:"); // Clear all news list caches
-    deleteCacheByPrefix("news:trending:"); // Clear trending caches
-    deleteCacheByPrefix("news:related:"); // Clear related news caches
-
-    if (slug) {
-      deleteCache(`news:slug:${slug}`); // Clear specific article cache
-      console.log(`🧹 Cleared specific article cache: news:slug:${slug}`);
-    }
-
-    // Clear Redis patterns
-    const redisKeys = await redis.keys("news:*");
-    if (redisKeys.length > 0) {
-      await redis.del(...redisKeys);
-      console.log(
-        `🧹 Cleared ${redisKeys.length} Redis keys with pattern news:*`
-      );
-    }
-
-    // Also clear dashboard caches since news count affects dashboard stats
+    await clearNewsCaches(slug);
     await clearDashboardStatsCaches();
-
     console.log("✅ News-related caches cleared successfully");
   } catch (error) {
     console.error("❌ Error clearing news caches:", error);

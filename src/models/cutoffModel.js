@@ -4,7 +4,19 @@ const cutoffSchema = new mongoose.Schema(
   {
     examType: {
       type: String,
-      enum: ["JEE-Main", "JEE-Advanced", "NEET-UG", "GATE", "CAT"], // Add other exams as needed
+      enum: [
+        "JEE-Main",
+        "JEE-Advanced",
+        "NEET-UG",
+        "GATE",
+        "CAT",
+        "CLAT",
+        "NMAT",
+        "XAT",
+        "MAT",
+        "CMAT",
+        "SNAP",
+      ], // Add other exams as needed
       required: true,
     },
     year: { type: Number, required: true },

@@ -24,36 +24,14 @@ import PlacementStats from "../models/placementStatsModel.js";
 import TopRecruiters from "../models/topRecuritermodel.js";
 import { imagekit } from "../utils/imageKitClient.js";
 import { autoUpdatePlacementYear } from "../utils/placementYearUpdater.js";
+import {
+  clearRelatedCaches,
+  clearPlacementCaches,
+} from "../utils/cacheManager.js";
 
-// Helper function to clear placement-related caches
+// Helper function to clear placement-related caches (legacy - use clearPlacementCaches instead)
 const clearPlacementRelatedCaches = async (slug = null) => {
-  try {
-    console.log("🧹 Clearing placement-related caches...");
-
-    // Clear NodeCache patterns
-    deleteCacheByPrefix("placements:"); // Clear all placement list caches
-    deleteCacheByPrefix("placementStats:"); // Clear placement stats caches
-    deleteCacheByPrefix("topRecruiters:"); // Clear top recruiters caches
-
-    if (slug) {
-      deleteCache(`placement:college:${slug}`); // Clear specific college placement cache
-      deleteCache(`placementStats:college:${slug}`); // Clear specific college stats cache
-      console.log(`🧹 Cleared specific college placement caches for: ${slug}`);
-    }
-
-    // Clear Redis patterns
-    const redisKeys = await redis.keys("placement*");
-    if (redisKeys.length > 0) {
-      await redis.del(...redisKeys);
-      console.log(
-        `🧹 Cleared ${redisKeys.length} Redis keys with pattern placement*`
-      );
-    }
-
-    console.log("✅ Placement-related caches cleared successfully");
-  } catch (error) {
-    console.error("❌ Error clearing placement caches:", error);
-  }
+  await clearPlacementCaches(slug);
 };
 
 // ✅ Create new placement record

@@ -4,6 +4,7 @@ import Cutoff from "../models/cutoffModel.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { setCache, getCache, deleteCacheByPrefix } from "../utils/nodeCache.js";
 import redis from "../libs/redis.js";
+import { clearCutoffCaches } from "../utils/cacheManager.js";
 
 // Create cutoff
 export const createCutoffController = asyncHandler(async (req, res) => {
@@ -16,8 +17,8 @@ export const createCutoffController = asyncHandler(async (req, res) => {
 
   const cutoff = await Cutoff.create(data);
 
-  // Invalidate cache for this college cutoffs
-  deleteCacheByPrefix(`cutoffs:${slug}`);
+  // Clear cutoff caches for this college
+  await clearCutoffCaches(slug);
 
   res
     .status(201)
@@ -34,8 +35,8 @@ export const updateCutoffController = asyncHandler(async (req, res) => {
     return res.status(404).json(new ApiResponse(404, null, "Cutoff not found"));
   }
 
-  // Invalidate cache for the affected slug
-  deleteCacheByPrefix(`cutoffs:${updatedCutoff.slug}`);
+  // Clear cutoff caches for the affected college
+  await clearCutoffCaches(updatedCutoff.slug);
 
   res
     .status(200)
@@ -50,8 +51,8 @@ export const deleteCutoffController = asyncHandler(async (req, res) => {
     return res.status(404).json(new ApiResponse(404, null, "Cutoff not found"));
   }
 
-  // Invalidate cache for the affected slug
-  deleteCacheByPrefix(`cutoffs:${deletedCutoff.slug}`);
+  // Clear cutoff caches for the affected college
+  await clearCutoffCaches(deletedCutoff.slug);
 
   res
     .status(200)

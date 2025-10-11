@@ -11,33 +11,16 @@ import CollegeProfile from "../models/collegeProfileModel.js";
 import redis from "../libs/redis.js";
 import { deleteCacheByPrefix, deleteCache } from "../utils/nodeCache.js";
 import { clearDashboardStatsCaches } from "./DashboardStats.js";
+import {
+  clearRelatedCaches,
+  clearCollegeCaches,
+} from "../utils/cacheManager.js";
 
-// Helper function to clear college-related caches
+// Helper function to clear college-related caches (updated to use centralized cache manager)
 const clearCollegeRelatedCaches = async (slug = null) => {
   try {
-    console.log("🧹 Clearing college-related caches...");
-
-    // Clear NodeCache patterns
-    deleteCacheByPrefix("colleges:"); // Clear all college list caches
-
-    if (slug) {
-      deleteCache(`college:slug:${slug}`); // Clear specific college cache
-      console.log(`🧹 Cleared specific college cache: college:slug:${slug}`);
-    }
-
-    // Clear Redis patterns
-    const redisKeys = await redis.keys("college*");
-    if (redisKeys.length > 0) {
-      await redis.del(...redisKeys);
-      console.log(
-        `🧹 Cleared ${redisKeys.length} Redis keys with pattern college*`
-      );
-    }
-
-    // Also clear dashboard caches since college count/types affect dashboard stats
+    await clearCollegeCaches(slug);
     await clearDashboardStatsCaches();
-
-    console.log("✅ College-related caches cleared successfully");
   } catch (error) {
     console.error("❌ Error clearing college caches:", error);
   }

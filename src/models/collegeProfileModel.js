@@ -80,7 +80,7 @@ const collegeProfileSchema = new mongoose.Schema(
     highestPackage: { type: Number, required: true, min: 0 },
     placementRate: { type: Number, required: true, min: 0, max: 100 },
     instituteType: {
-      enum: ["Private", "Govt", "Deemed"],
+      enum: ["Private", "Govt", "Deemed", "PPP"],
       default: "Public",
       type: String,
     },

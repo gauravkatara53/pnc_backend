@@ -18,7 +18,7 @@ const topRecruitersSchema = new mongoose.Schema({
   totalRecruiters: { type: Number, required: true }, // 120+
   ppo: { type: Number, required: true }, // 45
   average: { type: Number, required: true }, // 68%
-  risePlacement: { type: string, required: true }, // +15%
+  risePlacement: { type: String, required: true }, // +15%
 
   // Banner image (optional, for the top image shown in UI)
   bannerImage: { type: String },

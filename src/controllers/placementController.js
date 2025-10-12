@@ -23,11 +23,9 @@ import {
 import PlacementStats from "../models/placementStatsModel.js";
 import TopRecruiters from "../models/topRecuritermodel.js";
 import { imagekit } from "../utils/imageKitClient.js";
-import { autoUpdatePlacementYear } from "../utils/placementYearUpdater.js";
-import {
-  clearRelatedCaches,
-  clearPlacementCaches,
-} from "../utils/cacheManager.js";
+import { clearPlacementCaches } from "../utils/cacheManager.js";
+import { logPlacementActivity } from "../services/activityService.js";
+import CollegeProfile from "../models/collegeProfileModel.js";
 
 // Helper function to clear placement-related caches (legacy - use clearPlacementCaches instead)
 const clearPlacementRelatedCaches = async (slug = null) => {
@@ -70,6 +68,25 @@ export const createPlacementController = asyncHandler(async (req, res) => {
 
   // Note: autoUpdatePlacementYear is now called inside createPlacementService
   // and will throw an error if it fails, which will be caught by asyncHandler
+
+  // Log activity
+  try {
+    const college = await CollegeProfile.findOne(
+      { slug },
+      { name: 1, fullNames: 1 }
+    );
+    const collegeName = college ? college.name || college.fullNames : slug;
+
+    await logPlacementActivity("CREATE", placement, collegeName, null, {
+      userId: req.user?.id || null,
+      userEmail: req.user?.email || null,
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.get("User-Agent"),
+    });
+  } catch (activityError) {
+    console.error("Failed to log placement activity:", activityError.message);
+    // Don't fail the main operation if activity logging fails
+  }
 
   // Clear placement-related caches since new placement affects lists and stats
   await clearPlacementRelatedCaches(slug);

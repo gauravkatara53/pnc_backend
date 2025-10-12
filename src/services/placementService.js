@@ -1,12 +1,6 @@
 import Placement from "../models/placementModel.js";
 import CollegeProfile from "../models/collegeProfileModel.js";
-import {
-  setCache,
-  getCache,
-  deleteCache,
-  deleteCacheByPrefix,
-  getOrSetCache,
-} from "../utils/nodeCache.js";
+import { setCache, getCache } from "../utils/nodeCache.js";
 import PlacementStats from "../models/placementStatsModel.js";
 import TopRecruiters from "../models/topRecuritermodel.js";
 import redis from "../libs/redis.js";

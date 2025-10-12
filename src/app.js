@@ -36,11 +36,13 @@ import placementRoutes from "./routes/placementRoutes.js";
 import cutoffRoutes from "./routes/cutoffRoutes.js";
 import newsRoutes from "./routes/newsRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
+import activityRoutes from "./routes/activityRoutes.js";
 
 app.use("/api/v1/college", collegeRoutes);
 app.use("/api/v1/placement", placementRoutes);
 app.use("/api/v1/cutoff", cutoffRoutes);
 app.use("/api/v1/news", newsRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
+app.use("/api/v1/activities", activityRoutes);
 
 export { app };

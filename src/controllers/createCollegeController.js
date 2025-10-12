@@ -8,13 +8,9 @@ import {
 } from "../services/createCollegeService.js";
 import { imagekit } from "../utils/imageKitClient.js";
 import CollegeProfile from "../models/collegeProfileModel.js";
-import redis from "../libs/redis.js";
-import { deleteCacheByPrefix, deleteCache } from "../utils/nodeCache.js";
 import { clearDashboardStatsCaches } from "./DashboardStats.js";
-import {
-  clearRelatedCaches,
-  clearCollegeCaches,
-} from "../utils/cacheManager.js";
+import { clearCollegeCaches } from "../utils/cacheManager.js";
+import { logCollegeActivity } from "../services/activityService.js";
 
 // Helper function to clear college-related caches (updated to use centralized cache manager)
 const clearCollegeRelatedCaches = async (slug = null) => {
@@ -94,6 +90,19 @@ export const createCollegeController = asyncHandler(async (req, res) => {
     AlsoKnownAs,
     stream,
   });
+
+  // Log activity
+  try {
+    await logCollegeActivity("CREATE", college, null, {
+      userId: req.user?.id || null,
+      userEmail: req.user?.email || null,
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.get("User-Agent"),
+    });
+  } catch (activityError) {
+    console.error("Failed to log college activity:", activityError.message);
+    // Don't fail the main operation if activity logging fails
+  }
 
   // Clear college-related caches since new college affects lists
   await clearCollegeRelatedCaches(slug);

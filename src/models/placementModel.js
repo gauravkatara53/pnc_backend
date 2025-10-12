@@ -16,7 +16,7 @@ const placementSchema = new mongoose.Schema({
   highestPackageLPA: { type: Number, min: 0 }, // e.g., 18.00
 
   averagePackageLPA: { type: Number, min: 0 }, // e.g., 7.37
-});
+}, { timestamps: true });
 
 const Placement = mongoose.model("Placement", placementSchema);
 

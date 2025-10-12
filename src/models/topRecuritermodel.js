@@ -10,22 +10,25 @@ const recruiterDetailSchema = new mongoose.Schema({
   logo: { type: String, required: true }, // company logo image URL
 });
 
-const topRecruitersSchema = new mongoose.Schema({
-  slug: { type: String, required: true }, // e.g. "top-recruiters-2024"
-  year: { type: Number, required: true }, // e.g. 2024
+const topRecruitersSchema = new mongoose.Schema(
+  {
+    slug: { type: String, required: true }, // e.g. "top-recruiters-2024"
+    year: { type: Number, required: true }, // e.g. 2024
 
-  // Overall stats
-  totalRecruiters: { type: Number, required: true }, // 120+
-  ppo: { type: Number, required: true }, // 45
-  average: { type: Number, required: true }, // 68%
-  risePlacement: { type: String, required: true }, // +15%
+    // Overall stats
+    totalRecruiters: { type: Number, required: true }, // 120+
+    ppo: { type: Number, required: true }, // 45
+    average: { type: Number, required: true }, // 68%
+    risePlacement: { type: String, required: true }, // +15%
 
-  // Banner image (optional, for the top image shown in UI)
-  bannerImage: { type: String },
+    // Banner image (optional, for the top image shown in UI)
+    bannerImage: { type: String },
 
-  // Companies list
-  recruiters: [recruiterDetailSchema],
-});
+    // Companies list
+    recruiters: [recruiterDetailSchema],
+  },
+  { timestamps: true }
+);
 
 const TopRecruiters = mongoose.model("TopRecruiters", topRecruitersSchema);
 

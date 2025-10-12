@@ -3,16 +3,12 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { createNewsArticleService } from "../services/newsArticleService.js";
 import NewsArticle from "../models/newsModel.js";
-import {
-  setCache,
-  getCache,
-  deleteCacheByPrefix,
-  deleteCache,
-} from "../utils/nodeCache.js";
+import { setCache, getCache } from "../utils/nodeCache.js";
 import redis from "../libs/redis.js";
 import { imagekit } from "../utils/imageKitClient.js";
 import { clearDashboardStatsCaches } from "./DashboardStats.js";
-import { clearRelatedCaches, clearNewsCaches } from "../utils/cacheManager.js";
+import { clearNewsCaches } from "../utils/cacheManager.js";
+import { logNewsActivity } from "../services/activityService.js";
 
 // Helper function to clear news-related caches (updated to use centralized cache manager)
 const clearNewsRelatedCaches = async (slug = null) => {
@@ -50,6 +46,19 @@ export const createNewsArticleController = asyncHandler(async (req, res) => {
     readTime,
     sections,
   });
+
+  // Log activity
+  try {
+    await logNewsActivity("CREATE", newsArticle, null, {
+      userId: req.user?.id || null,
+      userEmail: req.user?.email || null,
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.get("User-Agent"),
+    });
+  } catch (activityError) {
+    console.error("Failed to log news activity:", activityError.message);
+    // Don't fail the main operation if activity logging fails
+  }
 
   // Clear all news-related caches since new article affects lists and trending
   await clearNewsRelatedCaches(slug);

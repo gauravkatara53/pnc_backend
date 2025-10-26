@@ -43,7 +43,7 @@ export const predictColleges = asyncHandler(async (req, res) => {
   ];
   const allowedRounds = mode === "risk" ? riskRounds : safeRounds;
 
-  // === EXCLUDED QUOTAS (Never Considered) ===
+  // === EXCLUDED QUOTAS ===
   const excludedQuotas = [
     "DASA-CIWG",
     "DASA-Non CIWG",
@@ -51,8 +51,45 @@ export const predictColleges = asyncHandler(async (req, res) => {
     "Foreign-Quota",
   ];
 
+  // === SEAT TYPE MAPPING ===
+  const seatTypeGroupMap = {
+    General: ["General", "GNYes", "OPEN"],
+    EWS: ["EWS"],
+    OBC: ["OBC", "OBC-NCL"],
+    SC: ["SC"],
+    ST: ["ST"],
+    PwD: [
+      "EWS (PwD)",
+      "EWS-PwD",
+      "EWS PwD",
+      "General\nPwD",
+      "General-PwD",
+      "OBC PwD",
+      "OBC-NCL (PwD)",
+      "OBC-NCL-PwD",
+      "OPEN (PwD)",
+      "SC (PwD)",
+      "SC PwD",
+      "SC-PwD",
+      "ST (PwD)",
+      "ST PwD",
+      "ST-PwD",
+    ],
+    Other: ["Kashmiri", "Single"],
+  };
+
+  // === SUBCATEGORY MAPPING ===
+  const subCategoryGroupMap = {
+    "Gender-Neutral": ["Gender-Neutral", "Open Seat Quota", "None"],
+    Female: ["Female-only", "Girl"],
+  };
+
+  // Derive seatType and subCategory lists
+  const seatTypeList = seatTypeGroupMap[seatType] || [seatType];
+  const subCategoryList = subCategoryGroupMap[subCategory] || [subCategory];
+
   try {
-    // 1️⃣ Fetch all rows in batches
+    // === FETCH ALL ROWS (BATCHED) ===
     const batchSize = 1000;
     let allData = [];
     let from = 0;
@@ -64,9 +101,18 @@ export const predictColleges = asyncHandler(async (req, res) => {
         .from("cutoffs")
         .select("*")
         .eq("examType", examType)
-        .eq("seatType", seatType)
-        .eq("subCategory", subCategory)
+        .in("seatType", seatTypeList)
         .range(from, to);
+
+      // handle subCategory properly
+      if (subCategory === "Gender-Neutral") {
+        // include NULL subcategories
+        query = query.or(
+          `subCategory.in.(${subCategoryList.join(",")}),subCategory.is.null`
+        );
+      } else {
+        query = query.in("subCategory", subCategoryList);
+      }
 
       const { data, error } = await query;
       if (error) {
@@ -89,41 +135,37 @@ export const predictColleges = asyncHandler(async (req, res) => {
       `🎯 Total rows fetched from Supabase: ${allData.length} (in ${batchCount} batches)`
     );
 
-    // 2️⃣ Apply seat type / quota filtering logic
+    // === FILTER BASED ON QUOTA & HOME STATE ===
     allData = allData.filter((item) => {
       const quota = (item.quota || "").trim();
       const collegeState = (item.state || "").toLowerCase();
       const userState = (homeState || "").toLowerCase();
 
-      // ❌ Exclude DASA / Foreign quotas
       if (excludedQuotas.includes(quota)) return false;
 
-      // ✅ Always included quotas
-      const alwaysIncluded = ["AI", "All India", "OS", "Open Seat Quota"];
+      const alwaysIncluded = [
+        "AI",
+        "All India",
+        "OS",
+        "Open Seat Quota",
+        "Outside Delhi Region",
+      ];
       if (alwaysIncluded.includes(quota)) return true;
 
-      // 🏠 Delhi region logic
-      if (quota === "Delhi Region" && userState === "delhi") return true;
-      if (quota === "Outside Delhi Region" && userState !== "delhi")
+      if (quota === "Delhi Region" && userState === "Delhi") return true;
+      if (quota === "Outside Delhi Region" && userState !== "Delhi")
         return true;
-
-      // 🏠 Goa specific
-      if (quota === "GO" && userState === "goa") return true;
-
-      // 🏠 HS: Home State quota (college.state must match userState)
+      if (quota === "GO" && userState === "Goa") return true;
       if (quota === "HS" && collegeState === userState) return true;
-
-      // 🏠 JK / LA (UT specific)
       if (quota === "JK" && userState === "jammu-and-kashmir") return true;
       if (quota === "LA" && userState === "ladakh") return true;
 
-      // ❌ Everything else excluded
       return false;
     });
 
     console.log(`✅ Rows after quota filter: ${allData.length}`);
 
-    // 3️⃣ Group by college-course-branch
+    // === GROUP BY COLLEGE-COURSE-BRANCH ===
     const grouped = new Map();
     allData.forEach((item) => {
       const key = `${item.slug}|${item.course}|${item.branch}`;
@@ -137,19 +179,16 @@ export const predictColleges = asyncHandler(async (req, res) => {
 
     const results = [];
 
-    // 4️⃣ Process each group
+    // === PROCESS EACH GROUP ===
     for (const [key, group] of grouped) {
-      // Check eligibility
       const eligibleRounds = group.filter(
         (r) =>
           parsedRank <= (r.closingRank ?? Number.MAX_VALUE) &&
           allowedRounds.includes(r.round)
       );
 
-      // If safe mode → must be found in allowedRounds
       if (mode === "safe" && eligibleRounds.length === 0) continue;
 
-      // Choose best matching round
       const firstRound =
         eligibleRounds.sort((a, b) => {
           const aNum = parseInt(a.round.match(/Round-(\d+)/)?.[1] ?? "99");
@@ -162,7 +201,6 @@ export const predictColleges = asyncHandler(async (req, res) => {
 
       if (!firstRound) continue;
 
-      // Calculate scores
       const rankScore = Math.max(
         0,
         1 -
@@ -175,19 +213,14 @@ export const predictColleges = asyncHandler(async (req, res) => {
         (branchWeight / 100) * 0.3 +
         (collegeWeight / 100) * 0.3;
 
-      // Cutoff Map
       const cutoffMap = {};
       const years = [...new Set(group.map((r) => r.year))];
       years.forEach((year) => {
         cutoffMap[year] = {};
-
         group
           .filter((r) => {
-            // In safe mode, only include rounds starting with "Round-"
-            if (mode === "safe") {
+            if (mode === "safe")
               return r.year === year && r.round.startsWith("Round-");
-            }
-            // In other modes, include all rounds for the year
             return r.year === year;
           })
           .forEach((r) => {
@@ -219,8 +252,6 @@ export const predictColleges = asyncHandler(async (req, res) => {
     }
 
     console.log(`✅ Total colleges after all filters: ${results.length}`);
-
-    // Sort by final score descending
     results.sort((a, b) => b.FinalScore - a.FinalScore);
 
     return res

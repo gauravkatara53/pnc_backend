@@ -12,7 +12,7 @@ export const predictColleges = asyncHandler(async (req, res) => {
   const { rank, examType, seatType, subCategory, homeState, mode } = req.query;
   const parsedRank = parseInt(rank || "0", 10);
 
-  console.log("=== Predict Colleges ===");
+  console.log("\n=== Predict Colleges (Enhanced Logic) ===");
   console.log("Input params:", {
     rank: parsedRank,
     examType,
@@ -22,6 +22,7 @@ export const predictColleges = asyncHandler(async (req, res) => {
     mode,
   });
 
+  // === ROUND LOGIC ===
   const safeRounds = [
     "Round-1",
     "Round-2",
@@ -42,8 +43,16 @@ export const predictColleges = asyncHandler(async (req, res) => {
   ];
   const allowedRounds = mode === "risk" ? riskRounds : safeRounds;
 
+  // === EXCLUDED QUOTAS (Never Considered) ===
+  const excludedQuotas = [
+    "DASA-CIWG",
+    "DASA-Non CIWG",
+    "Foreign Country Quota",
+    "Foreign-Quota",
+  ];
+
   try {
-    // 1️⃣ Fetch all rows from Supabase in batches of 1000
+    // 1️⃣ Fetch all rows in batches
     const batchSize = 1000;
     let allData = [];
     let from = 0;
@@ -59,28 +68,19 @@ export const predictColleges = asyncHandler(async (req, res) => {
         .eq("subCategory", subCategory)
         .range(from, to);
 
-      if (homeState) {
-        query = query.or(
-          `quota.neq.HS,and(quota.eq.HS,state.ilike.${homeState.toLowerCase()})`
-        );
-      }
-
       const { data, error } = await query;
       if (error) {
-        console.error("Supabase fetch error:", error);
+        console.error("❌ Supabase fetch error:", error);
         return res.status(500).json(new ApiResponse(500, null, error.message));
       }
 
       if (!data || data.length === 0) break;
 
-      allData = [...allData, ...data];
+      allData.push(...data);
       batchCount++;
       console.log(`✅ Batch ${batchCount}: fetched ${data.length} rows`);
 
-      // Stop if fetched less than batchSize → no more data left
       if (data.length < batchSize) break;
-
-      // Move to next batch
       from += batchSize;
       to += batchSize;
     }
@@ -89,41 +89,80 @@ export const predictColleges = asyncHandler(async (req, res) => {
       `🎯 Total rows fetched from Supabase: ${allData.length} (in ${batchCount} batches)`
     );
 
-    // 2️⃣ Group by college-course-branch
+    // 2️⃣ Apply seat type / quota filtering logic
+    allData = allData.filter((item) => {
+      const quota = (item.quota || "").trim();
+      const collegeState = (item.state || "").toLowerCase();
+      const userState = (homeState || "").toLowerCase();
+
+      // ❌ Exclude DASA / Foreign quotas
+      if (excludedQuotas.includes(quota)) return false;
+
+      // ✅ Always included quotas
+      const alwaysIncluded = ["AI", "All India", "OS", "Open Seat Quota"];
+      if (alwaysIncluded.includes(quota)) return true;
+
+      // 🏠 Delhi region logic
+      if (quota === "Delhi Region" && userState === "delhi") return true;
+      if (quota === "Outside Delhi Region" && userState !== "delhi")
+        return true;
+
+      // 🏠 Goa specific
+      if (quota === "GO" && userState === "goa") return true;
+
+      // 🏠 HS: Home State quota (college.state must match userState)
+      if (quota === "HS" && collegeState === userState) return true;
+
+      // 🏠 JK / LA (UT specific)
+      if (quota === "JK" && userState === "jammu-and-kashmir") return true;
+      if (quota === "LA" && userState === "ladakh") return true;
+
+      // ❌ Everything else excluded
+      return false;
+    });
+
+    console.log(`✅ Rows after quota filter: ${allData.length}`);
+
+    // 3️⃣ Group by college-course-branch
     const grouped = new Map();
     allData.forEach((item) => {
       const key = `${item.slug}|${item.course}|${item.branch}`;
       if (!grouped.has(key)) grouped.set(key, []);
       grouped.get(key).push(item);
     });
-    console.log(`Total unique college-course-branch groups: ${grouped.size}`);
+
+    console.log(
+      `📦 Total unique college-course-branch groups: ${grouped.size}`
+    );
 
     const results = [];
 
+    // 4️⃣ Process each group
     for (const [key, group] of grouped) {
-      const anyEligible = group.some(
-        (r) => parsedRank <= (r.closingRank ?? Number.MAX_VALUE)
+      // Check eligibility
+      const eligibleRounds = group.filter(
+        (r) =>
+          parsedRank <= (r.closingRank ?? Number.MAX_VALUE) &&
+          allowedRounds.includes(r.round)
       );
-      if (!anyEligible) continue;
 
+      // If safe mode → must be found in allowedRounds
+      if (mode === "safe" && eligibleRounds.length === 0) continue;
+
+      // Choose best matching round
       const firstRound =
-        group
-          .filter(
-            (r) =>
-              parsedRank <= (r.closingRank ?? Number.MAX_VALUE) &&
-              allowedRounds.includes(r.round)
-          )
-          .sort((a, b) => {
-            const aNum = parseInt(a.round.match(/Round-(\d+)/)?.[1] ?? "99");
-            const bNum = parseInt(b.round.match(/Round-(\d+)/)?.[1] ?? "99");
-            return aNum - bNum;
-          })[0] ||
+        eligibleRounds.sort((a, b) => {
+          const aNum = parseInt(a.round.match(/Round-(\d+)/)?.[1] ?? "99");
+          const bNum = parseInt(b.round.match(/Round-(\d+)/)?.[1] ?? "99");
+          return aNum - bNum;
+        })[0] ||
         group
           .filter((r) => parsedRank <= (r.closingRank ?? Number.MAX_VALUE))
           .sort((a, b) => (a.year || 0) - (b.year || 0))[0];
 
       if (!firstRound) continue;
 
+      // Calculate scores
       const rankScore = Math.max(
         0,
         1 -
@@ -136,12 +175,21 @@ export const predictColleges = asyncHandler(async (req, res) => {
         (branchWeight / 100) * 0.3 +
         (collegeWeight / 100) * 0.3;
 
+      // Cutoff Map
       const cutoffMap = {};
       const years = [...new Set(group.map((r) => r.year))];
       years.forEach((year) => {
         cutoffMap[year] = {};
+
         group
-          .filter((r) => r.year === year)
+          .filter((r) => {
+            // In safe mode, only include rounds starting with "Round-"
+            if (mode === "safe") {
+              return r.year === year && r.round.startsWith("Round-");
+            }
+            // In other modes, include all rounds for the year
+            return r.year === year;
+          })
           .forEach((r) => {
             cutoffMap[year][r.round] = Math.round(r.closingRank ?? 0);
           });
@@ -170,10 +218,9 @@ export const predictColleges = asyncHandler(async (req, res) => {
       });
     }
 
-    console.log(
-      `✅ Total colleges after eligibility filter: ${results.length}`
-    );
+    console.log(`✅ Total colleges after all filters: ${results.length}`);
 
+    // Sort by final score descending
     results.sort((a, b) => b.FinalScore - a.FinalScore);
 
     return res
@@ -182,7 +229,7 @@ export const predictColleges = asyncHandler(async (req, res) => {
         new ApiResponse(200, results, "Predictions generated successfully")
       );
   } catch (e) {
-    console.error("Unexpected error:", e);
+    console.error("💥 Unexpected error:", e);
     return res.status(500).json(new ApiResponse(500, null, e.message));
   }
 });

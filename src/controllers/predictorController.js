@@ -9,8 +9,24 @@ const supabase = createClient(
 );
 
 export const predictColleges = asyncHandler(async (req, res) => {
-  const { rank, examType, seatType, subCategory, homeState, mode } = req.query;
+  const {
+    rank,
+    examType,
+    seatType,
+    subCategory,
+    homeState,
+    mode,
+    tag,
+    maxFees,
+  } = req.query;
   const parsedRank = parseInt(rank || "0", 10);
+
+  // --- PAGINATION PARAMETERS ---
+  const page = parseInt(req.query.page || "1", 10);
+  const pageSize = parseInt(req.query.pageSize || "20", 10);
+
+  // Parse maxFees as number (optional)
+  const feesLimit = maxFees ? Number(maxFees) : null;
 
   console.log("\n=== Predict Colleges (Enhanced Logic) ===");
   console.log("Input params:", {
@@ -20,6 +36,10 @@ export const predictColleges = asyncHandler(async (req, res) => {
     subCategory,
     homeState,
     mode,
+    page,
+    pageSize,
+    tag,
+    maxFees,
   });
 
   // === ROUND LOGIC ===
@@ -254,11 +274,51 @@ export const predictColleges = asyncHandler(async (req, res) => {
     console.log(`✅ Total colleges after all filters: ${results.length}`);
     results.sort((a, b) => b.FinalScore - a.FinalScore);
 
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(200, results, "Predictions generated successfully")
+    // === FILTER BY TAG ===
+    let filteredByTag = results;
+    if (tag) {
+      const lowerTag = tag.toLowerCase().trim();
+      filteredByTag = results.filter((college) => {
+        // slug before dash - e.g. iit-delhi => "iit"
+        const slugPrefix = college.Slug.split("-")[0].toLowerCase();
+        return slugPrefix === lowerTag;
+      });
+      console.log(
+        `✅ Colleges after tag filter (${tag}): ${filteredByTag.length}`
       );
+    }
+
+    // === FILTER BY FEES RANGE (maxFees) ===
+    let filteredByFees = filteredByTag;
+    if (feesLimit !== null && !isNaN(feesLimit)) {
+      filteredByFees = filteredByTag.filter((college) => {
+        // If fees is null or not number, treat as infinite (exclude if maxFees applied)
+        const feesValue = Number(college.Fees);
+        return !isNaN(feesValue) && feesValue <= feesLimit;
+      });
+      console.log(
+        `✅ Colleges after fees filter (<= ${feesLimit}): ${filteredByFees.length}`
+      );
+    }
+
+    // === USER-SIDE PAGINATION ON FILTERED RESULTS ===
+    const totalResults = filteredByFees.length;
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedResults = filteredByFees.slice(startIndex, endIndex);
+
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          totalResults,
+          page,
+          pageSize,
+          colleges: paginatedResults,
+        },
+        "Predictions generated successfully"
+      )
+    );
   } catch (e) {
     console.error("💥 Unexpected error:", e);
     return res.status(500).json(new ApiResponse(500, null, e.message));

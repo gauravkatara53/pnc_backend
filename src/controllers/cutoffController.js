@@ -6,6 +6,45 @@ import { setCache, getCache, deleteCacheByPrefix } from "../utils/nodeCache.js";
 import redis from "../libs/redis.js";
 import { clearCutoffCaches } from "../utils/cacheManager.js";
 
+// Bulk create cutoffs
+export const bulkCreateCutoffController = asyncHandler(async (req, res) => {
+  // Fixed fields allowed from req.body
+  const {
+    examType,
+    year,
+    slug,
+    seatType,
+    subCategory,
+    cutoffs, // Each item now contains quota, course, branch, round, ranks etc.
+  } = req.body;
+
+  if (!Array.isArray(cutoffs) || cutoffs.length === 0) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "cutoffs array required"));
+  }
+
+  // Compose bulk data → only 5 fixed fields + all item fields
+  const bulkData = cutoffs.map((item) => ({
+    examType,
+    year,
+    slug,
+    seatType,
+    subCategory,
+    ...item, // quota, course, branch, round, openingRank, closingRank
+  }));
+
+  // Insert many
+  const result = await Cutoff.insertMany(bulkData);
+
+  // Clear cutoff caches for this slug
+  await clearCutoffCaches(slug);
+
+  res
+    .status(201)
+    .json(new ApiResponse(201, result, "Bulk cutoffs created successfully"));
+});
+
 // Create cutoff
 export const createCutoffController = asyncHandler(async (req, res) => {
   const { slug } = req.params;
